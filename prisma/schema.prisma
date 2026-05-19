@@ -1,0 +1,757 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum AccountType {
+  PERSONAL_HELBERT
+  HOUSEHOLD
+  PERSONAL_LEIDIANE
+  BUSINESS_AGENCY
+  TRAVEL_EXTRA
+  DEBT
+  REIMBURSEMENT
+  WORKING_CAPITAL
+}
+
+enum FinancialInstitution {
+  SICOOB
+  NUBANK
+  CAIXA
+  BRADESCO
+  MERCADO_PAGO
+  INFINITEPAY
+  COMPANY_ACCOUNT
+  CASH
+  OTHER
+}
+
+enum TransactionDirection {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum TransactionSource {
+  MANUAL
+  IMPORTED_CSV
+  IMPORTED_OFX
+  API
+}
+
+enum ClientStatus {
+  ACTIVE
+  STANDBY
+  DELINQUENT
+  CANCELED
+  PROSPECT
+}
+
+enum ServiceType {
+  TRAFFIC_MANAGEMENT
+  SOCIAL_MEDIA
+  LANDING_PAGE
+  AUTOMATION
+  CRM
+  WEBSITE
+  CONSULTING
+  BRANDING
+  OTHER
+}
+
+enum PaymentMethod {
+  PIX
+  BANK_SLIP
+  CREDIT_CARD
+  DEBIT_CARD
+  TRANSFER
+  CASH
+  OTHER
+}
+
+enum ReceivableStatus {
+  PENDING
+  PAID
+  PARTIAL
+  OVERDUE
+  CANCELED
+  RENEGOTIATED
+}
+
+enum PayableStatus {
+  OPEN
+  PAID
+  OVERDUE
+  INSTALMENT
+  RENEGOTIATED
+  SUSPENDED
+}
+
+enum PayableType {
+  FIXED
+  VARIABLE
+  RECURRING
+  EXTRAORDINARY
+  DEBT
+  INVESTMENT
+}
+
+enum RecurrenceType {
+  ONE_TIME
+  MONTHLY
+  YEARLY
+  INSTALMENT
+}
+
+enum DebtType {
+  BANK
+  CREDIT_CARD
+  FAMILY
+  SUPPLIER
+  TAX
+  FINANCING
+  PERSONAL_LOAN
+  WORKING_CAPITAL
+}
+
+enum DebtStatus {
+  ON_TIME
+  LATE
+  RENEGOTIATED
+  PAID_OFF
+  NEGOTIATING
+}
+
+enum DocumentType {
+  CLIENT_CONTRACT
+  SUPPLIER_CONTRACT
+  INVOICE_ISSUED
+  INVOICE_RECEIVED
+  PAYMENT_PROOF
+  RECEIPT_PROOF
+  BANK_SLIP
+  RECEIPT
+  DEBT_DOCUMENT
+  PERSONAL_DOCUMENT
+  COMPANY_DOCUMENT
+  OTHER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  CANCELED
+  OVERDUE
+}
+
+enum PayrollType {
+  FIXED
+  VARIABLE
+  FREELANCER
+}
+
+enum WithdrawalType {
+  PRO_LABORE
+  PROFIT_DISTRIBUTION
+  ADVANCE
+  OTHER
+}
+
+enum ReimbursementStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELED
+}
+
+enum AlertLevel {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum ProjectionType {
+  REVENUE
+  EXPENSE
+  TAX
+  RESERVE
+  PRO_LABORE
+  DEBT
+  OTHER
+}
+
+enum ProvisionType {
+  TAX
+  VACATION
+  THIRTEENTH
+  ANNUAL_TOOLS
+  DOMAIN_HOSTING
+  EQUIPMENT
+  EMERGENCY_RESERVE
+  FAMILY_PAYMENT
+  BACK_TAXES
+  RENEGOTIATION
+  OTHER
+}
+
+enum GoalType {
+  REVENUE
+  MARGIN
+  RESERVE
+  DEBT_REDUCTION
+  CASH_FLOW
+}
+
+model User {
+  id            String          @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id])
+  name          String
+  email         String          @unique
+  passwordHash  String?
+  role          UserRole        @default(MEMBER)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  deletedAt     DateTime?
+  importBatches ImportBatch[]
+  documents     Document[]
+}
+
+model Workspace {
+  id                   String                @id @default(cuid())
+  name                 String
+  legalName            String?
+  ownerName            String?
+  ownerCpf             String?
+  companyCnpj          String?
+  timezone             String                @default("America/Sao_Paulo")
+  currency             String                @default("BRL")
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  deletedAt            DateTime?
+  users                User[]
+  accounts             Account[]
+  categories           Category[]
+  costCenters          CostCenter[]
+  providers            Provider[]
+  teamMembers          TeamMember[]
+  clients              Client[]
+  contracts            Contract[]
+  receivables          Receivable[]
+  payables             Payable[]
+  debts                Debt[]
+  creditCards          CreditCard[]
+  creditCardTxs        CreditCardTransaction[]
+  transactions         Transaction[]
+  documents            Document[]
+  invoices             Invoice[]
+  payrolls             Payroll[]
+  withdrawals          Withdrawal[]
+  reimbursements       Reimbursement[]
+  projections          Projection[]
+  provisions           Provision[]
+  goals                FinancialGoal[]
+  alerts               Alert[]
+  importBatches        ImportBatch[]
+  classificationRules  ClassificationRule[]
+}
+
+model Account {
+  id           String                @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace             @relation(fields: [workspaceId], references: [id])
+  name         String
+  type         AccountType
+  institution  FinancialInstitution
+  balance      Decimal               @default(0)
+  isActive     Boolean               @default(true)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  deletedAt    DateTime?
+  transactions Transaction[]
+  receivables  Receivable[]
+  payables     Payable[]
+  withdrawals  Withdrawal[]
+  @@index([workspaceId, type, institution])
+}
+
+model Category {
+  id           String                @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace             @relation(fields: [workspaceId], references: [id])
+  name         String
+  slug         String
+  isIncome     Boolean               @default(false)
+  color        String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  deletedAt    DateTime?
+  transactions Transaction[]
+  payables     Payable[]
+  @@unique([workspaceId, slug])
+}
+
+model CostCenter {
+  id           String                @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace             @relation(fields: [workspaceId], references: [id])
+  name         String
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  deletedAt    DateTime?
+  transactions Transaction[]
+  payables     Payable[]
+  @@unique([workspaceId, name])
+}
+
+model Client {
+  id                 String         @id @default(cuid())
+  workspaceId        String
+  workspace          Workspace      @relation(fields: [workspaceId], references: [id])
+  name               String
+  companyName        String?
+  document           String?
+  contactName        String?
+  phone              String?
+  email              String?
+  niche              String?
+  status             ClientStatus   @default(ACTIVE)
+  monthlyContract    Decimal        @default(0)
+  startDate          DateTime?
+  dueDay             Int?
+  services           ServiceType[]
+  paymentMethod      PaymentMethod?
+  receivingAccountId String?
+  receivingAccount   Account?       @relation(fields: [receivingAccountId], references: [id])
+  observations       String?
+  folderLink         String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  deletedAt          DateTime?
+  contracts          Contract[]
+  receivables        Receivable[]
+  documents          Document[]
+  @@index([workspaceId, status])
+}
+
+model Contract {
+  id                 String         @id @default(cuid())
+  workspaceId        String
+  workspace          Workspace      @relation(fields: [workspaceId], references: [id])
+  clientId           String
+  client             Client         @relation(fields: [clientId], references: [id])
+  title              String
+  monthlyValue       Decimal
+  startsAt           DateTime
+  endsAt             DateTime?
+  dueDay             Int
+  services           ServiceType[]
+  paymentMethod      PaymentMethod?
+  receivingAccountId String?
+  receivingAccount   Account?       @relation(fields: [receivingAccountId], references: [id])
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  deletedAt          DateTime?
+  receivables        Receivable[]
+  @@index([workspaceId, clientId, dueDay])
+}
+
+model Receivable {
+  id             String           @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id])
+  clientId       String
+  client         Client           @relation(fields: [clientId], references: [id])
+  contractId     String?
+  contract       Contract?        @relation(fields: [contractId], references: [id])
+  competency     DateTime
+  expectedAmount Decimal
+  receivedAmount Decimal          @default(0)
+  expectedDate   DateTime
+  receivedDate   DateTime?
+  status         ReceivableStatus @default(PENDING)
+  accountId      String?
+  account        Account?         @relation(fields: [accountId], references: [id])
+  invoiceIssued  Boolean          @default(false)
+  invoiceNumber  String?
+  observations   String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+  documents      Document[]
+  @@index([workspaceId, status, expectedDate])
+}
+
+model Payable {
+  id               String        @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace     @relation(fields: [workspaceId], references: [id])
+  description      String
+  providerId       String?
+  provider         Provider?     @relation(fields: [providerId], references: [id])
+  categoryId       String?
+  category         Category?     @relation(fields: [categoryId], references: [id])
+  costCenterId     String?
+  costCenter       CostCenter?   @relation(fields: [costCenterId], references: [id])
+  amount           Decimal
+  dueDate          DateTime
+  status           PayableStatus @default(OPEN)
+  type             PayableType
+  accountId        String?
+  account          Account?      @relation(fields: [accountId], references: [id])
+  recurrence       RecurrenceType @default(ONE_TIME)
+  instalmentNumber Int?
+  instalmentTotal  Int?
+  paidAt           DateTime?
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  deletedAt        DateTime?
+  documents        Document[]
+  @@index([workspaceId, status, dueDate])
+}
+
+model Provider {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  name        String
+  document    String?
+  email       String?
+  phone       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  payables    Payable[]
+  @@unique([workspaceId, name])
+}
+
+model TeamMember {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  name        String
+  role        String?
+  type        PayrollType
+  cost        Decimal
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  payrolls    Payroll[]
+}
+
+model Payroll {
+  id           String      @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace   @relation(fields: [workspaceId], references: [id])
+  teamMemberId String
+  teamMember   TeamMember  @relation(fields: [teamMemberId], references: [id])
+  competency   DateTime
+  amount       Decimal
+  paidAt       DateTime?
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+}
+
+model Debt {
+  id                String     @id @default(cuid())
+  workspaceId       String
+  workspace         Workspace  @relation(fields: [workspaceId], references: [id])
+  creditor          String
+  type              DebtType
+  originalAmount    Decimal
+  outstandingAmount Decimal
+  monthlyRate       Decimal?
+  cet               Decimal?
+  dueDate           DateTime?
+  totalInstalments  Int?
+  paidInstalments   Int        @default(0)
+  remainingInstalments Int?
+  status            DebtStatus @default(ON_TIME)
+  guarantee         String?
+  observations      String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  deletedAt         DateTime?
+  documents         Document[]
+}
+
+model CreditCard {
+  id              String                  @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace               @relation(fields: [workspaceId], references: [id])
+  bank            String
+  holderName      String
+  limitAmount     Decimal
+  bestPurchaseDay Int?
+  dueDay          Int
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  deletedAt       DateTime?
+  transactions    CreditCardTransaction[]
+}
+
+model CreditCardTransaction {
+  id             String         @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id])
+  creditCardId   String
+  creditCard     CreditCard     @relation(fields: [creditCardId], references: [id])
+  transactionAt  DateTime
+  description    String
+  amount         Decimal
+  ownerBucket    AccountType?
+  categoryId     String?
+  category       Category?      @relation(fields: [categoryId], references: [id])
+  costCenterId   String?
+  costCenter     CostCenter?    @relation(fields: [costCenterId], references: [id])
+  instalment     Int?
+  instalmentTotal Int?
+  importBatchId  String?
+  importBatch    ImportBatch?   @relation(fields: [importBatchId], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  @@index([workspaceId, creditCardId, transactionAt])
+}
+
+model Transaction {
+  id             String               @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace            @relation(fields: [workspaceId], references: [id])
+  transactionAt  DateTime
+  competency     DateTime
+  direction      TransactionDirection
+  source         TransactionSource    @default(MANUAL)
+  description    String
+  amount         Decimal
+  accountType    AccountType
+  institution    FinancialInstitution
+  accountId      String?
+  account        Account?             @relation(fields: [accountId], references: [id])
+  categoryId     String?
+  category       Category?            @relation(fields: [categoryId], references: [id])
+  costCenterId   String?
+  costCenter     CostCenter?          @relation(fields: [costCenterId], references: [id])
+  clientId       String?
+  client         Client?              @relation(fields: [clientId], references: [id])
+  providerId     String?
+  provider       Provider?            @relation(fields: [providerId], references: [id])
+  notes          String?
+  duplicateHash  String?
+  importBatchId  String?
+  importBatch    ImportBatch?         @relation(fields: [importBatchId], references: [id])
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  deletedAt      DateTime?
+  documents      Document[]
+  @@index([workspaceId, competency, direction])
+  @@index([workspaceId, clientId])
+  @@index([workspaceId, duplicateHash])
+}
+
+model Document {
+  id              String       @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace    @relation(fields: [workspaceId], references: [id])
+  name            String
+  type            DocumentType
+  fileUrl         String
+  mimeType        String?
+  sizeBytes       Int?
+  competency      DateTime?
+  documentDate    DateTime?
+  amount          Decimal?
+  tags            String[]
+  notes           String?
+  clientId        String?
+  client          Client?      @relation(fields: [clientId], references: [id])
+  providerId      String?
+  provider        Provider?    @relation(fields: [providerId], references: [id])
+  transactionId   String?
+  transaction     Transaction? @relation(fields: [transactionId], references: [id])
+  receivableId    String?
+  receivable      Receivable?  @relation(fields: [receivableId], references: [id])
+  payableId       String?
+  payable         Payable?     @relation(fields: [payableId], references: [id])
+  debtId          String?
+  debt            Debt?        @relation(fields: [debtId], references: [id])
+  uploadedById    String?
+  uploadedBy      User?        @relation(fields: [uploadedById], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+  @@index([workspaceId, type, documentDate])
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id])
+  clientId      String?
+  client        Client?       @relation(fields: [clientId], references: [id])
+  number        String
+  status        InvoiceStatus @default(DRAFT)
+  issueDate     DateTime?
+  dueDate       DateTime?
+  amount        Decimal
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+  @@unique([workspaceId, number])
+}
+
+model Withdrawal {
+  id           String         @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id])
+  type         WithdrawalType
+  amount       Decimal
+  withdrawalAt DateTime
+  accountId    String?
+  account      Account?       @relation(fields: [accountId], references: [id])
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+}
+
+model Reimbursement {
+  id             String              @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace           @relation(fields: [workspaceId], references: [id])
+  description    String
+  requestedBy    String?
+  amount         Decimal
+  status         ReimbursementStatus @default(PENDING)
+  requestedAt    DateTime
+  paidAt         DateTime?
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  deletedAt      DateTime?
+}
+
+model Projection {
+  id             String         @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id])
+  month          Int
+  year           Int
+  type           ProjectionType
+  description    String
+  expectedAmount Decimal
+  confirmedAmount Decimal?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  @@index([workspaceId, year, month, type])
+}
+
+model Provision {
+  id               String        @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace     @relation(fields: [workspaceId], references: [id])
+  type             ProvisionType
+  description      String
+  monthlyTarget    Decimal
+  provisionedAmount Decimal      @default(0)
+  dueMonth         Int?
+  dueYear          Int?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  deletedAt        DateTime?
+}
+
+model FinancialGoal {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id])
+  type         GoalType
+  title        String
+  targetAmount Decimal
+  currentAmount Decimal  @default(0)
+  dueDate      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+}
+
+model Alert {
+  id          String      @id @default(cuid())
+  workspaceId String
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id])
+  level       AlertLevel
+  status      AlertStatus @default(OPEN)
+  title       String
+  message     String
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  resolvedAt  DateTime?
+  deletedAt   DateTime?
+  @@index([workspaceId, status, level])
+}
+
+model ImportBatch {
+  id             String                   @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace                @relation(fields: [workspaceId], references: [id])
+  uploadedById   String?
+  uploadedBy     User?                    @relation(fields: [uploadedById], references: [id])
+  source         String
+  fileName       String
+  fileUrl        String?
+  importedAt     DateTime                 @default(now())
+  totalRows      Int                      @default(0)
+  successRows    Int                      @default(0)
+  failedRows     Int                      @default(0)
+  status         String                   @default("PENDING")
+  errors         Json?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  deletedAt      DateTime?
+  transactions   Transaction[]
+  cardTransactions CreditCardTransaction[]
+}
+
+model ClassificationRule {
+  id             String      @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace   @relation(fields: [workspaceId], references: [id])
+  name           String
+  keywordPattern String
+  accountType    AccountType?
+  categoryId     String?
+  category       Category?   @relation(fields: [categoryId], references: [id])
+  costCenterId   String?
+  costCenter     CostCenter? @relation(fields: [costCenterId], references: [id])
+  priority       Int         @default(100)
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+  @@index([workspaceId, isActive, priority])
+}

@@ -21,6 +21,9 @@ export type FinancialInstitution =
 
 export type TransactionDirection = "INCOME" | "EXPENSE";
 export type ClientStatus = "ACTIVE" | "STANDBY" | "DELINQUENT" | "CANCELED" | "PROSPECT";
+export type ReceivableStatus = "PENDING" | "PAID" | "PARTIAL" | "OVERDUE" | "CANCELED" | "RENEGOTIATED";
+export type PayableStatus = "OPEN" | "PAID" | "OVERDUE" | "INSTALMENT" | "RENEGOTIATED" | "SUSPENDED";
+export type PayableType = "FIXED" | "VARIABLE" | "RECURRING" | "EXTRAORDINARY" | "DEBT" | "INVESTMENT";
 
 export type Account = {
   id: string;
@@ -62,5 +65,34 @@ export type Contract = {
   startsAt: string;
   dueDay: number;
   services: string;
+  deletedAt?: string;
+};
+
+export type Receivable = {
+  id: string;
+  clientId: string;
+  competency: string;
+  expectedAmount: number;
+  receivedAmount: number;
+  expectedDate: string;
+  receivedDate?: string;
+  status: ReceivableStatus;
+  accountId?: string;
+  notes?: string;
+  deletedAt?: string;
+};
+
+export type Payable = {
+  id: string;
+  description: string;
+  provider?: string;
+  category: string;
+  costCenter: string;
+  amount: number;
+  dueDate: string;
+  status: PayableStatus;
+  type: PayableType;
+  accountId?: string;
+  notes?: string;
   deletedAt?: string;
 };

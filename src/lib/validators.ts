@@ -60,7 +60,34 @@ export const contractSchema = z.object({
   services: z.string().min(2),
 });
 
+export const receivableSchema = z.object({
+  clientId: z.string().min(1),
+  competency: z.string().min(1),
+  expectedAmount: z.coerce.number().positive(),
+  receivedAmount: z.coerce.number().nonnegative().default(0),
+  expectedDate: z.string().min(1),
+  receivedDate: z.string().optional(),
+  status: z.enum(["PENDING", "PAID", "PARTIAL", "OVERDUE", "CANCELED", "RENEGOTIATED"]),
+  accountId: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const payableSchema = z.object({
+  description: z.string().min(2),
+  provider: z.string().optional(),
+  category: z.string().min(2),
+  costCenter: z.string().min(2),
+  amount: z.coerce.number().positive(),
+  dueDate: z.string().min(1),
+  status: z.enum(["OPEN", "PAID", "OVERDUE", "INSTALMENT", "RENEGOTIATED", "SUSPENDED"]),
+  type: z.enum(["FIXED", "VARIABLE", "RECURRING", "EXTRAORDINARY", "DEBT", "INVESTMENT"]),
+  accountId: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 export type AccountInput = z.infer<typeof accountSchema>;
 export type TransactionInput = z.infer<typeof transactionSchema>;
 export type ClientInput = z.infer<typeof clientSchema>;
 export type ContractInput = z.infer<typeof contractSchema>;
+export type ReceivableInput = z.infer<typeof receivableSchema>;
+export type PayableInput = z.infer<typeof payableSchema>;

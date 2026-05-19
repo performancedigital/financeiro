@@ -5,6 +5,8 @@ import {
   addAccountToStore,
   addClientToStore,
   addContractToStore,
+  addPayableToStore,
+  addReceivableToStore,
   addTransactionToStore,
   getStore,
   saveStore,
@@ -15,6 +17,8 @@ import {
   accountSchema,
   clientSchema,
   contractSchema,
+  payableSchema,
+  receivableSchema,
   transactionSchema,
 } from "@/lib/validators";
 
@@ -478,6 +482,309 @@ export function ClientsModule() {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  );
+}
+
+export function ReceivablesModule() {
+  const { store, update } = useAppStore();
+  const [error, setError] = useState<string | null>(null);
+
+  const receivables = store.receivables.filter((r) => !r.deletedAt);
+  const clients = store.clients.filter((c) => !c.deletedAt);
+  const nowTs = useMemo(() => new Date().getTime(), []);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const dueToday = receivables.filter((r) => r.expectedDate === today && r.status !== "PAID").length;
+  const overdue = receivables.filter((r) => r.status === "OVERDUE").length;
+  const over5days = receivables.filter((r) => {
+    if (r.status !== "OVERDUE") return false;
+    const diff = (nowTs - new Date(r.expectedDate).getTime()) / (1000 * 60 * 60 * 24);
+    return diff > 5;
+  }).length;
+
+  const handleAdd = (formData: FormData) => {
+    const parsed = receivableSchema.safeParse({
+      clientId: String(formData.get("clientId") ?? ""),
+      competency: String(formData.get("competency") ?? ""),
+      expectedAmount: Number(formData.get("expectedAmount") ?? 0),
+      receivedAmount: Number(formData.get("receivedAmount") ?? 0),
+      expectedDate: String(formData.get("expectedDate") ?? ""),
+      receivedDate: String(formData.get("receivedDate") ?? "") || undefined,
+      status: String(formData.get("status") ?? "PENDING"),
+      accountId: String(formData.get("accountId") ?? "") || undefined,
+      notes: String(formData.get("notes") ?? "") || undefined,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Dados invalidos.");
+      return;
+    }
+    update(addReceivableToStore(store, parsed.data));
+    setError(null);
+  };
+
+  const markPaid = (id: string) => {
+    update({
+      ...store,
+      receivables: store.receivables.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              status: "PAID",
+              receivedAmount: r.receivedAmount > 0 ? r.receivedAmount : r.expectedAmount,
+              receivedDate: new Date().toISOString().slice(0, 10),
+            }
+          : r,
+      ),
+    });
+  };
+
+  return (
+    <section className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <article className="cc-card p-4">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Vencendo hoje</p>
+          <p className="mt-1 text-xl font-bold text-amber-700">{dueToday}</p>
+        </article>
+        <article className="cc-card p-4">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Vencidos</p>
+          <p className="mt-1 text-xl font-bold text-red-700">{overdue}</p>
+        </article>
+        <article className="cc-card p-4">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Atraso &gt; 5 dias</p>
+          <p className="mt-1 text-xl font-bold text-red-700">{over5days}</p>
+        </article>
+      </div>
+
+      {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+
+      <article className="cc-card p-4">
+        <h3 className="text-sm font-semibold text-zinc-900">Novo lancamento a receber</h3>
+        <form action={handleAdd} className="mt-3 grid gap-2 md:grid-cols-3">
+          <select name="clientId" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <input name="competency" type="date" defaultValue={today} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <input name="expectedAmount" type="number" step="0.01" placeholder="Valor previsto" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <input name="receivedAmount" type="number" step="0.01" defaultValue={0} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <input name="expectedDate" type="date" defaultValue={today} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <input name="receivedDate" type="date" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <select name="status" defaultValue="PENDING" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+            <option value="PENDING">Pendente</option>
+            <option value="PAID">Pago</option>
+            <option value="PARTIAL">Pago parcial</option>
+            <option value="OVERDUE">Atrasado</option>
+            <option value="CANCELED">Cancelado</option>
+            <option value="RENEGOTIATED">Renegociado</option>
+          </select>
+          <select name="accountId" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+            <option value="">Conta opcional</option>
+            {store.accounts
+              .filter((a) => !a.deletedAt)
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+          </select>
+          <input name="notes" placeholder="Observacoes" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm md:col-span-2" />
+          <button type="submit" className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">
+            Salvar recebivel
+          </button>
+        </form>
+      </article>
+
+      <article className="cc-card p-4">
+        <h3 className="text-sm font-semibold text-zinc-900">Contas a receber</h3>
+        <div className="mt-2 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-zinc-50">
+                <th className="px-3 py-2 text-left">Cliente</th>
+                <th className="px-3 py-2 text-left">Competencia</th>
+                <th className="px-3 py-2 text-left">Previsto</th>
+                <th className="px-3 py-2 text-left">Recebido</th>
+                <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Acoes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {receivables.map((r) => (
+                <tr key={r.id}>
+                  <td className="px-3 py-2">{clients.find((c) => c.id === r.clientId)?.name ?? r.clientId}</td>
+                  <td className="px-3 py-2">{r.competency}</td>
+                  <td className="px-3 py-2">{money(r.expectedAmount)}</td>
+                  <td className="px-3 py-2">{money(r.receivedAmount)}</td>
+                  <td className="px-3 py-2">{r.status}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-2">
+                      {r.status !== "PAID" ? (
+                        <button type="button" onClick={() => markPaid(r.id)} className="rounded bg-emerald-600 px-2 py-1 text-xs text-white">
+                          Marcar pago
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => update({ ...store, receivables: softDeleteById(store.receivables, r.id) })}
+                        className="rounded bg-red-600 px-2 py-1 text-xs text-white"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  );
+}
+
+export function PayablesModule() {
+  const { store, update } = useAppStore();
+  const [error, setError] = useState<string | null>(null);
+  const payables = store.payables.filter((p) => !p.deletedAt);
+  const totalOpen = payables.filter((p) => p.status !== "PAID").reduce((acc, p) => acc + p.amount, 0);
+
+  const handleAdd = (formData: FormData) => {
+    const parsed = payableSchema.safeParse({
+      description: String(formData.get("description") ?? ""),
+      provider: String(formData.get("provider") ?? "") || undefined,
+      category: String(formData.get("category") ?? ""),
+      costCenter: String(formData.get("costCenter") ?? ""),
+      amount: Number(formData.get("amount") ?? 0),
+      dueDate: String(formData.get("dueDate") ?? ""),
+      status: String(formData.get("status") ?? "OPEN"),
+      type: String(formData.get("type") ?? "VARIABLE"),
+      accountId: String(formData.get("accountId") ?? "") || undefined,
+      notes: String(formData.get("notes") ?? "") || undefined,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Dados invalidos.");
+      return;
+    }
+    update(addPayableToStore(store, parsed.data));
+    setError(null);
+  };
+
+  const markPaid = (id: string) => {
+    update({
+      ...store,
+      payables: store.payables.map((p) => (p.id === id ? { ...p, status: "PAID" } : p)),
+    });
+  };
+
+  return (
+    <section className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <article className="cc-card p-4">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Total em aberto</p>
+          <p className="mt-1 text-xl font-bold text-red-700">{money(totalOpen)}</p>
+        </article>
+        <article className="cc-card p-4">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Pagas</p>
+          <p className="mt-1 text-xl font-bold text-emerald-700">{payables.filter((p) => p.status === "PAID").length}</p>
+        </article>
+        <article className="cc-card p-4">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Atrasadas</p>
+          <p className="mt-1 text-xl font-bold text-amber-700">{payables.filter((p) => p.status === "OVERDUE").length}</p>
+        </article>
+      </div>
+
+      {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+
+      <article className="cc-card p-4">
+        <h3 className="text-sm font-semibold text-zinc-900">Novo lancamento a pagar</h3>
+        <form action={handleAdd} className="mt-3 grid gap-2 md:grid-cols-3">
+          <input name="description" placeholder="Descricao" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <input name="provider" placeholder="Fornecedor (opcional)" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <input name="category" placeholder="Categoria" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <input name="costCenter" placeholder="Centro de custo" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <input name="amount" type="number" step="0.01" placeholder="Valor" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <input name="dueDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+          <select name="status" defaultValue="OPEN" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+            <option value="OPEN">Aberto</option>
+            <option value="PAID">Pago</option>
+            <option value="OVERDUE">Atrasado</option>
+            <option value="INSTALMENT">Parcelado</option>
+            <option value="RENEGOTIATED">Renegociado</option>
+            <option value="SUSPENDED">Suspenso</option>
+          </select>
+          <select name="type" defaultValue="VARIABLE" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+            <option value="FIXED">Fixo</option>
+            <option value="VARIABLE">Variavel</option>
+            <option value="RECURRING">Recorrente</option>
+            <option value="EXTRAORDINARY">Extraordinario</option>
+            <option value="DEBT">Divida</option>
+            <option value="INVESTMENT">Investimento</option>
+          </select>
+          <select name="accountId" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+            <option value="">Conta opcional</option>
+            {store.accounts
+              .filter((a) => !a.deletedAt)
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+          </select>
+          <input name="notes" placeholder="Observacoes" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm md:col-span-2" />
+          <button type="submit" className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">
+            Salvar pagamento
+          </button>
+        </form>
+      </article>
+
+      <article className="cc-card p-4">
+        <h3 className="text-sm font-semibold text-zinc-900">Contas a pagar</h3>
+        <div className="mt-2 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-zinc-50">
+                <th className="px-3 py-2 text-left">Descricao</th>
+                <th className="px-3 py-2 text-left">Categoria</th>
+                <th className="px-3 py-2 text-left">Valor</th>
+                <th className="px-3 py-2 text-left">Vencimento</th>
+                <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Acoes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {payables.map((p) => (
+                <tr key={p.id}>
+                  <td className="px-3 py-2">{p.description}</td>
+                  <td className="px-3 py-2">{p.category}</td>
+                  <td className="px-3 py-2">{money(p.amount)}</td>
+                  <td className="px-3 py-2">{p.dueDate}</td>
+                  <td className="px-3 py-2">{p.status}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-2">
+                      {p.status !== "PAID" ? (
+                        <button type="button" onClick={() => markPaid(p.id)} className="rounded bg-emerald-600 px-2 py-1 text-xs text-white">
+                          Marcar pago
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => update({ ...store, payables: softDeleteById(store.payables, p.id) })}
+                        className="rounded bg-red-600 px-2 py-1 text-xs text-white"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

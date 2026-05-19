@@ -1,11 +1,20 @@
-import type { Account, Client, Contract, Transaction } from "@/lib/app-types";
-import type { AccountInput, ClientInput, ContractInput, TransactionInput } from "@/lib/validators";
+import type { Account, Client, Contract, Payable, Receivable, Transaction } from "@/lib/app-types";
+import type {
+  AccountInput,
+  ClientInput,
+  ContractInput,
+  PayableInput,
+  ReceivableInput,
+  TransactionInput,
+} from "@/lib/validators";
 
 export type AppStore = {
   accounts: Account[];
   transactions: Transaction[];
   clients: Client[];
   contracts: Contract[];
+  receivables: Receivable[];
+  payables: Payable[];
 };
 
 const KEY = "cc_store_v1";
@@ -88,6 +97,55 @@ export const initialStore: AppStore = {
       services: "Gestao de trafego, Social media",
     },
   ],
+  receivables: [
+    {
+      id: "rec_1",
+      clientId: "cli_educaminas",
+      competency: new Date().toISOString().slice(0, 10),
+      expectedAmount: 2800,
+      receivedAmount: 2800,
+      expectedDate: new Date().toISOString().slice(0, 10),
+      receivedDate: new Date().toISOString().slice(0, 10),
+      status: "PAID",
+      accountId: "acc_infinitepay",
+    },
+    {
+      id: "rec_2",
+      clientId: "cli_bias",
+      competency: new Date().toISOString().slice(0, 10),
+      expectedAmount: 2500,
+      receivedAmount: 0,
+      expectedDate: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      status: "OVERDUE",
+      accountId: "acc_infinitepay",
+    },
+  ],
+  payables: [
+    {
+      id: "pay_1",
+      description: "Equipe de trafego mensal",
+      provider: "Equipe Performance",
+      category: "Equipe",
+      costCenter: "Agencia",
+      amount: 6800,
+      dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      status: "OPEN",
+      type: "FIXED",
+      accountId: "acc_infinitepay",
+    },
+    {
+      id: "pay_2",
+      description: "Google Workspace",
+      provider: "Google",
+      category: "Ferramentas",
+      costCenter: "Agencia",
+      amount: 190,
+      dueDate: new Date().toISOString().slice(0, 10),
+      status: "PAID",
+      type: "RECURRING",
+      accountId: "acc_infinitepay",
+    },
+  ],
 };
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -137,6 +195,16 @@ export const addClientToStore = (store: AppStore, input: ClientInput): AppStore 
 export const addContractToStore = (store: AppStore, input: ContractInput): AppStore => {
   const contract: Contract = { id: nowId("ctr"), ...input };
   return { ...store, contracts: [contract, ...store.contracts] };
+};
+
+export const addReceivableToStore = (store: AppStore, input: ReceivableInput): AppStore => {
+  const receivable: Receivable = { id: nowId("rec"), ...input };
+  return { ...store, receivables: [receivable, ...store.receivables] };
+};
+
+export const addPayableToStore = (store: AppStore, input: PayableInput): AppStore => {
+  const payable: Payable = { id: nowId("pay"), ...input };
+  return { ...store, payables: [payable, ...store.payables] };
 };
 
 export const softDeleteById = <T extends { id: string; deletedAt?: string }>(items: T[], id: string): T[] =>

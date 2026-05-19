@@ -1,6 +1,11 @@
 import { dashboardKpis, quickAlerts } from "@/lib/dashboard-data";
 import type { AppModule } from "@/lib/navigation";
-import { AccountsModule, ClientsModule } from "@/components/modules/operations-modules";
+import {
+  AccountsModule,
+  ClientsModule,
+  PayablesModule,
+  ReceivablesModule,
+} from "@/components/modules/operations-modules";
 
 const toneClass: Record<string, string> = {
   positive: "text-emerald-700",
@@ -168,5 +173,7 @@ export function ModulesView({ module }: { module: AppModule }) {
   if (module.key === "dashboard") return <DashboardModule />;
   if (module.key === "contas") return <AccountsModule />;
   if (module.key === "clientes") return <ClientsModule />;
+  if (module.key === "receber") return <ReceivablesModule />;
+  if (module.key === "pagar") return <PayablesModule />;
   return <GenericModule module={module} />;
 }

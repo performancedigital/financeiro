@@ -8,11 +8,9 @@ import {
   addPayableToStore,
   addReceivableToStore,
   addTransactionToStore,
-  getStore,
-  saveStore,
   softDeleteById,
-  type AppStore,
 } from "@/lib/local-store";
+import { useAppStore } from "@/lib/use-app-store";
 import {
   accountSchema,
   clientSchema,
@@ -24,17 +22,6 @@ import {
 
 const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-
-function useAppStore() {
-  const [store, setStore] = useState<AppStore>(() => getStore());
-
-  const update = (next: AppStore) => {
-    setStore(next);
-    saveStore(next);
-  };
-
-  return { store, update };
-}
 
 export function AccountsModule() {
   const { store, update } = useAppStore();

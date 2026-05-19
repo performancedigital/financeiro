@@ -1,15 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  addAccountToStore,
-  addClientToStore,
-  addContractToStore,
-  addPayableToStore,
-  addReceivableToStore,
-  addTransactionToStore,
-  softDeleteById,
-} from "@/lib/local-store";
 import { useAppStore } from "@/lib/use-app-store";
 import {
   accountSchema,
@@ -24,11 +15,21 @@ const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 export function AccountsModule() {
-  const { store, update } = useAppStore();
+  const {
+    store,
+    ensureLoaded,
+    createAccount,
+    deleteAccount,
+    createTransaction,
+    deleteTransaction,
+  } = useAppStore();
   const [error, setError] = useState<string | null>(null);
 
-  const activeAccounts = store.accounts.filter((a) => !a.deletedAt);
-  const activeTransactions = store.transactions.filter((t) => !t.deletedAt);
+  ensureLoaded();
+  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">Carregando contas...</article>;
+
+  const activeAccounts = store.accounts;
+  const activeTransactions = store.transactions;
 
   const totalIncome = activeTransactions
     .filter((t) => t.direction === "INCOME")
@@ -37,7 +38,7 @@ export function AccountsModule() {
     .filter((t) => t.direction === "EXPENSE")
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const handleAccount = (formData: FormData) => {
+  const handleAccount = async (formData: FormData) => {
     const parsed = accountSchema.safeParse({
       name: String(formData.get("name") ?? ""),
       type: String(formData.get("type") ?? ""),
@@ -48,11 +49,11 @@ export function AccountsModule() {
       setError(parsed.error.issues[0]?.message ?? "Dados invalidos.");
       return;
     }
-    update(addAccountToStore(store, parsed.data));
+    await createAccount(parsed.data);
     setError(null);
   };
 
-  const handleTransaction = (formData: FormData) => {
+  const handleTransaction = async (formData: FormData) => {
     const parsed = transactionSchema.safeParse({
       date: String(formData.get("date") ?? ""),
       direction: String(formData.get("direction") ?? ""),
@@ -67,12 +68,11 @@ export function AccountsModule() {
       setError(parsed.error.issues[0]?.message ?? "Dados invalidos.");
       return;
     }
-    const result = addTransactionToStore(store, parsed.data);
-    if (result.duplicate) {
+    const result = await createTransaction(parsed.data);
+    if (result?.duplicate) {
       setError("Transacao duplicada detectada (mesma data, valor, descricao e conta).");
       return;
     }
-    update(result.store);
     setError(null);
   };
 
@@ -174,11 +174,7 @@ export function AccountsModule() {
                   <td className="px-3 py-2">{a.institution}</td>
                   <td className="px-3 py-2">{money(a.balance)}</td>
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => update({ ...store, accounts: softDeleteById(store.accounts, a.id) })}
-                      className="rounded bg-red-600 px-2 py-1 text-xs text-white"
-                    >
+                    <button type="button" onClick={() => void deleteAccount(a.id)} className="rounded bg-red-600 px-2 py-1 text-xs text-white">
                       Excluir
                     </button>
                   </td>
@@ -212,11 +208,7 @@ export function AccountsModule() {
                   <td className="px-3 py-2">{money(t.amount)}</td>
                   <td className="px-3 py-2">{t.category}</td>
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => update({ ...store, transactions: softDeleteById(store.transactions, t.id) })}
-                      className="rounded bg-red-600 px-2 py-1 text-xs text-white"
-                    >
+                    <button type="button" onClick={() => void deleteTransaction(t.id)} className="rounded bg-red-600 px-2 py-1 text-xs text-white">
                       Excluir
                     </button>
                   </td>
@@ -231,13 +223,49 @@ export function AccountsModule() {
 }
 
 export function ClientsModule() {
-  const { store, update } = useAppStore();
+  const {
+    store,
+    ensureLoaded,
+    createClient,
+    deleteClient,
+    createContract,
+    deleteContract,
+  } = useAppStore();
   const [error, setError] = useState<string | null>(null);
 
+  ensureLoaded();
   const metrics = useMemo(() => {
-    const clients = store.clients.filter((c) => !c.deletedAt);
-    const contracts = store.contracts.filter((c) => !c.deletedAt);
-    const transactions = store.transactions.filter((t) => !t.deletedAt && t.direction === "INCOME");
+    if (!store) {
+      return {
+        clientRows: [] as Array<{
+          client: { id: string; name: string; status: string; monthlyValue: number; startDate: string };
+          ticket: number;
+          monthsActive: number;
+          ltv: number;
+          totalReceived: number;
+        }>,
+        mrr: 0,
+        arr: 0,
+        ltvAvg: 0,
+        top: [] as Array<{
+          client: { id: string; name: string; status: string; monthlyValue: number; startDate: string };
+          ticket: number;
+          monthsActive: number;
+          ltv: number;
+          totalReceived: number;
+        }>,
+        low: [] as Array<{
+          client: { id: string; name: string; status: string; monthlyValue: number; startDate: string };
+          ticket: number;
+          monthsActive: number;
+          ltv: number;
+          totalReceived: number;
+        }>,
+      };
+    }
+    const clients = store.clients;
+    const contracts = store.contracts;
+    const transactions = store.transactions.filter((t) => t.direction === "INCOME");
 
     const today = new Date();
     const clientRows = clients.map((client) => {
@@ -252,13 +280,7 @@ export function ClientsModule() {
       const totalReceived = transactions
         .filter((t) => t.clientId === client.id)
         .reduce((acc, t) => acc + t.amount, 0);
-      return {
-        client,
-        ticket,
-        monthsActive,
-        ltv,
-        totalReceived,
-      };
+      return { client, ticket, monthsActive, ltv, totalReceived };
     });
 
     const mrr = contracts.reduce((acc, c) => acc + c.monthlyValue, 0);
@@ -266,16 +288,15 @@ export function ClientsModule() {
     const ltvAvg = clientRows.length ? clientRows.reduce((a, r) => a + r.ltv, 0) / clientRows.length : 0;
     const top = [...clientRows].sort((a, b) => b.ltv - a.ltv).slice(0, 3);
     const low = [...clientRows].sort((a, b) => a.ltv - b.ltv).slice(0, 3);
-
     return { clientRows, mrr, arr, ltvAvg, top, low };
   }, [store]);
 
-  if (!metrics) return <article className="cc-card p-4 text-sm text-zinc-600">Carregando clientes...</article>;
+  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">Carregando clientes...</article>;
 
-  const clients = store.clients.filter((c) => !c.deletedAt);
-  const contracts = store.contracts.filter((c) => !c.deletedAt);
+  const clients = store.clients;
+  const contracts = store.contracts;
 
-  const handleClient = (formData: FormData) => {
+  const handleClient = async (formData: FormData) => {
     const parsed = clientSchema.safeParse({
       name: String(formData.get("name") ?? ""),
       status: String(formData.get("status") ?? ""),
@@ -286,11 +307,11 @@ export function ClientsModule() {
       setError(parsed.error.issues[0]?.message ?? "Dados invalidos.");
       return;
     }
-    update(addClientToStore(store, parsed.data));
+    await createClient(parsed.data);
     setError(null);
   };
 
-  const handleContract = (formData: FormData) => {
+  const handleContract = async (formData: FormData) => {
     const parsed = contractSchema.safeParse({
       clientId: String(formData.get("clientId") ?? ""),
       title: String(formData.get("title") ?? ""),
@@ -303,7 +324,7 @@ export function ClientsModule() {
       setError(parsed.error.issues[0]?.message ?? "Dados invalidos.");
       return;
     }
-    update(addContractToStore(store, parsed.data));
+    await createContract(parsed.data);
     setError(null);
   };
 
@@ -393,11 +414,7 @@ export function ClientsModule() {
                   <td className="px-3 py-2">{money(row.ltv)}</td>
                   <td className="px-3 py-2">{money(row.totalReceived)}</td>
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => update({ ...store, clients: softDeleteById(store.clients, row.client.id) })}
-                      className="rounded bg-red-600 px-2 py-1 text-xs text-white"
-                    >
+                    <button type="button" onClick={() => void deleteClient(row.client.id)} className="rounded bg-red-600 px-2 py-1 text-xs text-white">
                       Excluir
                     </button>
                   </td>
@@ -458,11 +475,7 @@ export function ClientsModule() {
                     <td className="px-3 py-2">Dia {contract.dueDay}</td>
                     <td className="px-3 py-2">{contract.services}</td>
                     <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => update({ ...store, contracts: softDeleteById(store.contracts, contract.id) })}
-                        className="rounded bg-red-600 px-2 py-1 text-xs text-white"
-                      >
+                      <button type="button" onClick={() => void deleteContract(contract.id)} className="rounded bg-red-600 px-2 py-1 text-xs text-white">
                         Excluir
                       </button>
                     </td>
@@ -478,12 +491,20 @@ export function ClientsModule() {
 }
 
 export function ReceivablesModule() {
-  const { store, update } = useAppStore();
+  const {
+    store,
+    ensureLoaded,
+    createReceivable,
+    markReceivablePaid,
+    deleteReceivable,
+  } = useAppStore();
   const [error, setError] = useState<string | null>(null);
 
-  const receivables = store.receivables.filter((r) => !r.deletedAt);
-  const clients = store.clients.filter((c) => !c.deletedAt);
+  ensureLoaded();
   const nowTs = useMemo(() => new Date().getTime(), []);
+  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">Carregando recebiveis...</article>;
+  const receivables = store.receivables;
+  const clients = store.clients;
   const today = new Date().toISOString().slice(0, 10);
 
   const dueToday = receivables.filter((r) => r.expectedDate === today && r.status !== "PAID").length;
@@ -494,7 +515,7 @@ export function ReceivablesModule() {
     return diff > 5;
   }).length;
 
-  const handleAdd = (formData: FormData) => {
+  const handleAdd = async (formData: FormData) => {
     const parsed = receivableSchema.safeParse({
       clientId: String(formData.get("clientId") ?? ""),
       competency: String(formData.get("competency") ?? ""),
@@ -510,24 +531,8 @@ export function ReceivablesModule() {
       setError(parsed.error.issues[0]?.message ?? "Dados invalidos.");
       return;
     }
-    update(addReceivableToStore(store, parsed.data));
+    await createReceivable(parsed.data);
     setError(null);
-  };
-
-  const markPaid = (id: string) => {
-    update({
-      ...store,
-      receivables: store.receivables.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status: "PAID",
-              receivedAmount: r.receivedAmount > 0 ? r.receivedAmount : r.expectedAmount,
-              receivedDate: new Date().toISOString().slice(0, 10),
-            }
-          : r,
-      ),
-    });
   };
 
   return (
@@ -574,13 +579,11 @@ export function ReceivablesModule() {
           </select>
           <select name="accountId" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
             <option value="">Conta opcional</option>
-            {store.accounts
-              .filter((a) => !a.deletedAt)
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
+            {store.accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
           </select>
           <input name="notes" placeholder="Observacoes" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm md:col-span-2" />
           <button type="submit" className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">
@@ -614,15 +617,11 @@ export function ReceivablesModule() {
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
                       {r.status !== "PAID" ? (
-                        <button type="button" onClick={() => markPaid(r.id)} className="rounded bg-emerald-600 px-2 py-1 text-xs text-white">
+                        <button type="button" onClick={() => void markReceivablePaid(r.id)} className="rounded bg-emerald-600 px-2 py-1 text-xs text-white">
                           Marcar pago
                         </button>
                       ) : null}
-                      <button
-                        type="button"
-                        onClick={() => update({ ...store, receivables: softDeleteById(store.receivables, r.id) })}
-                        className="rounded bg-red-600 px-2 py-1 text-xs text-white"
-                      >
+                      <button type="button" onClick={() => void deleteReceivable(r.id)} className="rounded bg-red-600 px-2 py-1 text-xs text-white">
                         Excluir
                       </button>
                     </div>
@@ -638,12 +637,22 @@ export function ReceivablesModule() {
 }
 
 export function PayablesModule() {
-  const { store, update } = useAppStore();
+  const {
+    store,
+    ensureLoaded,
+    createPayable,
+    markPayablePaid,
+    deletePayable,
+  } = useAppStore();
   const [error, setError] = useState<string | null>(null);
-  const payables = store.payables.filter((p) => !p.deletedAt);
+
+  ensureLoaded();
+  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">Carregando pagamentos...</article>;
+
+  const payables = store.payables;
   const totalOpen = payables.filter((p) => p.status !== "PAID").reduce((acc, p) => acc + p.amount, 0);
 
-  const handleAdd = (formData: FormData) => {
+  const handleAdd = async (formData: FormData) => {
     const parsed = payableSchema.safeParse({
       description: String(formData.get("description") ?? ""),
       provider: String(formData.get("provider") ?? "") || undefined,
@@ -660,15 +669,8 @@ export function PayablesModule() {
       setError(parsed.error.issues[0]?.message ?? "Dados invalidos.");
       return;
     }
-    update(addPayableToStore(store, parsed.data));
+    await createPayable(parsed.data);
     setError(null);
-  };
-
-  const markPaid = (id: string) => {
-    update({
-      ...store,
-      payables: store.payables.map((p) => (p.id === id ? { ...p, status: "PAID" } : p)),
-    });
   };
 
   return (
@@ -717,13 +719,11 @@ export function PayablesModule() {
           </select>
           <select name="accountId" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
             <option value="">Conta opcional</option>
-            {store.accounts
-              .filter((a) => !a.deletedAt)
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
+            {store.accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
           </select>
           <input name="notes" placeholder="Observacoes" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm md:col-span-2" />
           <button type="submit" className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">
@@ -757,15 +757,11 @@ export function PayablesModule() {
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
                       {p.status !== "PAID" ? (
-                        <button type="button" onClick={() => markPaid(p.id)} className="rounded bg-emerald-600 px-2 py-1 text-xs text-white">
+                        <button type="button" onClick={() => void markPayablePaid(p.id)} className="rounded bg-emerald-600 px-2 py-1 text-xs text-white">
                           Marcar pago
                         </button>
                       ) : null}
-                      <button
-                        type="button"
-                        onClick={() => update({ ...store, payables: softDeleteById(store.payables, p.id) })}
-                        className="rounded bg-red-600 px-2 py-1 text-xs text-white"
-                      >
+                      <button type="button" onClick={() => void deletePayable(p.id)} className="rounded bg-red-600 px-2 py-1 text-xs text-white">
                         Excluir
                       </button>
                     </div>

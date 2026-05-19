@@ -59,6 +59,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <h2 className="text-lg font-bold text-zinc-900">{activeModule.label}</h2>
               <p className="text-sm text-zinc-600">{activeModule.description}</p>
             </article>
+            <article className="cc-card p-4">
+              <h3 className="text-sm font-semibold text-zinc-900">Importacao e orquestracao de dados</h3>
+              <p className="mt-1 text-sm text-zinc-600">
+                Use o endpoint <code>/api/import/csv</code> para importar CSV por tipo e distribuir automaticamente nos modulos.
+              </p>
+              <p className="mt-1 text-sm text-zinc-600">
+                Endpoints: <code>accounts</code>, <code>transactions</code>, <code>clients</code>, <code>contracts</code>, <code>receivables</code>, <code>payables</code>.
+              </p>
+              <p className="mt-1 text-sm text-zinc-600">
+                Para limpar tudo (sem seed): <code>POST /api/import/clear</code>.
+              </p>
+            </article>
             <ModulesView module={activeModule} />
           </section>
         </div>

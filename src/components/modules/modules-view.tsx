@@ -13,13 +13,15 @@ const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 function DashboardModule() {
-  const { store } = useAppStore();
+  const { store, ensureLoaded } = useAppStore();
+  ensureLoaded();
+  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">Carregando dashboard...</article>;
 
-  const accounts = store.accounts.filter((a) => !a.deletedAt);
-  const transactions = store.transactions.filter((t) => !t.deletedAt);
-  const receivables = store.receivables.filter((r) => !r.deletedAt);
-  const payables = store.payables.filter((p) => !p.deletedAt);
-  const clients = store.clients.filter((c) => !c.deletedAt);
+  const accounts = store.accounts;
+  const transactions = store.transactions;
+  const receivables = store.receivables;
+  const payables = store.payables;
+  const clients = store.clients;
 
   const income = transactions
     .filter((t) => t.direction === "INCOME")

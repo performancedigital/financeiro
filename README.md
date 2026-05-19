@@ -37,7 +37,7 @@ npm install
 npm run db:generate
 ```
 
-4. (Opcional no MVP inicial) Suba schema no banco:
+4. Suba schema no banco:
 
 ```bash
 npm run db:push
@@ -53,6 +53,52 @@ npm run dev
 
 - `/login` -> autenticação
 - `/dashboard` -> área protegida
+
+## Persistência real (PostgreSQL)
+
+O app agora usa PostgreSQL via Prisma para CRUD real dos módulos:
+
+- contas
+- transações
+- clientes
+- contratos
+- contas a receber
+- contas a pagar
+
+Sem depender de mock em tela.
+
+## Importação CSV e orquestração dos dados
+
+Quem orquestra a distribuição dos dados por aba é o backend (`/api/import/csv`).
+
+Fluxo:
+
+1. Você envia `kind` + `csv` em JSON.
+2. O importador parseia colunas.
+3. Mapeia para o tipo correto.
+4. Persiste em PostgreSQL.
+5. Cada aba lê do banco e exibe seus dados.
+
+`kind` suportados:
+
+- `accounts`
+- `transactions`
+- `clients`
+- `contracts`
+- `receivables`
+- `payables`
+
+Endpoint para limpar base (sem seed):
+
+- `POST /api/import/clear`
+
+Exemplo de chamada:
+
+```bash
+curl -X POST http://localhost:3000/api/import/csv ^
+  -H "Content-Type: application/json" ^
+  -d "{\"kind\":\"accounts\",\"csv\":\"id,name,type,institution,balance\nacc1,Sicoob pessoal,PERSONAL_HELBERT,SICOOB,6200\"}"
+```
 
 ## Variáveis de ambiente
 

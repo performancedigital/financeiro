@@ -6,3 +6,61 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const accountSchema = z.object({
+  name: z.string().min(2, "Nome da conta obrigatorio."),
+  type: z.enum([
+    "PERSONAL_HELBERT",
+    "HOUSEHOLD",
+    "PERSONAL_LEIDIANE",
+    "BUSINESS_AGENCY",
+    "TRAVEL_EXTRA",
+    "DEBT",
+    "REIMBURSEMENT",
+    "WORKING_CAPITAL",
+  ]),
+  institution: z.enum([
+    "SICOOB",
+    "NUBANK",
+    "CAIXA",
+    "BRADESCO",
+    "MERCADO_PAGO",
+    "INFINITEPAY",
+    "COMPANY_ACCOUNT",
+    "CASH",
+    "OTHER",
+  ]),
+  balance: z.coerce.number().finite(),
+});
+
+export const transactionSchema = z.object({
+  date: z.string().min(1),
+  direction: z.enum(["INCOME", "EXPENSE"]),
+  description: z.string().min(2),
+  amount: z.coerce.number().positive(),
+  accountId: z.string().min(1),
+  category: z.string().min(2),
+  costCenter: z.string().min(2),
+  clientId: z.string().optional(),
+});
+
+export const clientSchema = z.object({
+  name: z.string().min(2),
+  status: z.enum(["ACTIVE", "STANDBY", "DELINQUENT", "CANCELED", "PROSPECT"]),
+  monthlyValue: z.coerce.number().nonnegative(),
+  startDate: z.string().min(1),
+});
+
+export const contractSchema = z.object({
+  clientId: z.string().min(1),
+  title: z.string().min(3),
+  monthlyValue: z.coerce.number().positive(),
+  startsAt: z.string().min(1),
+  dueDay: z.coerce.number().int().min(1).max(31),
+  services: z.string().min(2),
+});
+
+export type AccountInput = z.infer<typeof accountSchema>;
+export type TransactionInput = z.infer<typeof transactionSchema>;
+export type ClientInput = z.infer<typeof clientSchema>;
+export type ContractInput = z.infer<typeof contractSchema>;

@@ -1,110 +1,76 @@
 # CaixaComando (MVP)
 
-Plataforma web para gestão financeira de agência de marketing/performance, com separação clara entre:
+Plataforma web para gestão financeira de agência de performance.
 
-- Pessoa Física (Helbert)
-- Casa/Família
-- Leidiane
-- Empresa/Agência
-- Viagens/Extraordinários
-- Dívidas/Empréstimos
-- Reembolsos
-- Capital de giro
+## Status atual
 
-## Objetivo do MVP
+- Etapa 1 concluída: base Next.js + TypeScript + Tailwind + Prisma.
+- Etapa 2 concluída: login funcional com sessão em cookie httpOnly e rota protegida (`/dashboard`).
 
-Entregar rapidamente visão de decisão financeira (não só cadastro), cobrindo:
+## Credenciais MVP
 
-- Dashboard executivo com KPIs e alertas
-- Contas a receber e contas a pagar
-- Clientes, contratos e LTV básico
-- Fluxo de caixa previsto x realizado
-- DRE simplificada mensal
-- Projeção até dezembro
-- Upload de documentos
-- Importação CSV (Nubank) + classificação por regras
+- E-mail: `admin@caixacomando.local`
+- Senha: `admin123`
 
-## Stack alvo
+## Requisitos
 
-- Next.js + React + TypeScript
-- TailwindCSS + Shadcn UI
-- PostgreSQL + Prisma
-- NextAuth (ou Supabase Auth)
-- TanStack Table + Recharts
-- Zod + date-fns
-- PapaParse (CSV), jsPDF/XLSX (exportação)
+- Node.js 20+ (recomendado LTS)
+- PostgreSQL
 
-## Estrutura proposta
+## Setup local
 
-```txt
-src/
-  app/
-    (auth)/
-    (dashboard)/
-    api/
-  components/
-    dashboard/
-    forms/
-    tables/
-    charts/
-    layout/
-    ui/
-  modules/
-    accounts/
-    clients/
-    receivables/
-    payables/
-    cashflow/
-    dre/
-    debts/
-    cards/
-    documents/
-    projections/
-    reports/
-  lib/
-    finance/
-    classifiers/
-    importers/
-    exporters/
-    validators/
-  server/
-    repositories/
-    services/
-prisma/
-  schema.prisma
+1. Copie o arquivo de ambiente:
+
+```bash
+cp .env.example .env
 ```
 
-## Como começar
-
-1. Copie `.env.example` para `.env`.
-2. Configure `DATABASE_URL`.
-3. Rode migrações Prisma.
-4. Rode seed inicial.
-5. Suba a aplicação.
-
-Comandos previstos:
+2. Instale dependências:
 
 ```bash
 npm install
-npx prisma migrate dev
-npx prisma db seed
+```
+
+3. Gere cliente Prisma:
+
+```bash
+npm run db:generate
+```
+
+4. (Opcional no MVP inicial) Suba schema no banco:
+
+```bash
+npm run db:push
+```
+
+5. Execute a aplicação:
+
+```bash
 npm run dev
 ```
 
-## Entregáveis já definidos neste repositório
+## Rotas
 
-- Arquitetura funcional do MVP (`docs/ARQUITETURA.md`)
-- Roadmap de entrega (`docs/ROADMAP_MVP.md`)
-- Schema Prisma completo multiworkspace (`prisma/schema.prisma`)
-- Variáveis base (`.env.example`)
+- `/login` -> autenticação
+- `/dashboard` -> área protegida
 
-## Próxima etapa recomendada
+## Variáveis de ambiente
 
-Implementar vertical slice completo:
+- `DATABASE_URL`
+- `NEXTAUTH_SECRET`
+- `NEXTAUTH_URL`
 
-1) Auth + Workspace  
-2) Dashboard + KPIs  
-3) Receber/Pagar + fluxo mensal  
-4) Clientes/Contratos + LTV  
-5) Importador CSV Nubank + motor de regras  
-6) Relatório PDF mensal
+## Deploy Vercel
+
+Definir no projeto:
+
+- Framework: Next.js
+- Build command: `npm run build`
+- Install command: `npm install`
+- Environment Variables: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`
+
+## Próximas etapas
+
+- Etapa 3: shell premium (sidebar dinâmica, filtros globais, design system)
+- Etapa 4: CRUD núcleo financeiro (contas/transações)
+- Etapa 5+: clientes/contratos/receber/pagar/fluxo/DRE/importação/relatórios

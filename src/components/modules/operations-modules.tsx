@@ -17,7 +17,8 @@ const money = (v: number) =>
 export function AccountsModule() {
   const {
     store,
-    ensureLoaded,
+    loading,
+    error: storeError,
     createAccount,
     deleteAccount,
     createTransaction,
@@ -25,8 +26,7 @@ export function AccountsModule() {
   } = useAppStore();
   const [error, setError] = useState<string | null>(null);
 
-  ensureLoaded();
-  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">Carregando contas...</article>;
+  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">{loading ? "Carregando contas..." : "Sem dados para contas."}</article>;
 
   const activeAccounts = store.accounts;
   const activeTransactions = store.transactions;
@@ -96,6 +96,7 @@ export function AccountsModule() {
       </div>
 
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+      {storeError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{storeError.message}</p> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <article className="cc-card p-4">
@@ -225,7 +226,8 @@ export function AccountsModule() {
 export function ClientsModule() {
   const {
     store,
-    ensureLoaded,
+    loading,
+    error: storeError,
     createClient,
     deleteClient,
     createContract,
@@ -233,7 +235,6 @@ export function ClientsModule() {
   } = useAppStore();
   const [error, setError] = useState<string | null>(null);
 
-  ensureLoaded();
   const metrics = useMemo(() => {
     if (!store) {
       return {
@@ -291,7 +292,7 @@ export function ClientsModule() {
     return { clientRows, mrr, arr, ltvAvg, top, low };
   }, [store]);
 
-  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">Carregando clientes...</article>;
+  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">{loading ? "Carregando clientes..." : "Sem dados para clientes."}</article>;
 
   const clients = store.clients;
   const contracts = store.contracts;
@@ -350,6 +351,7 @@ export function ClientsModule() {
       </div>
 
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+      {storeError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{storeError.message}</p> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <article className="cc-card p-4">
@@ -493,16 +495,16 @@ export function ClientsModule() {
 export function ReceivablesModule() {
   const {
     store,
-    ensureLoaded,
+    loading,
+    error: storeError,
     createReceivable,
     markReceivablePaid,
     deleteReceivable,
   } = useAppStore();
   const [error, setError] = useState<string | null>(null);
 
-  ensureLoaded();
   const nowTs = useMemo(() => new Date().getTime(), []);
-  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">Carregando recebiveis...</article>;
+  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">{loading ? "Carregando recebiveis..." : "Sem dados para recebiveis."}</article>;
   const receivables = store.receivables;
   const clients = store.clients;
   const today = new Date().toISOString().slice(0, 10);
@@ -553,6 +555,7 @@ export function ReceivablesModule() {
       </div>
 
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+      {storeError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{storeError.message}</p> : null}
 
       <article className="cc-card p-4">
         <h3 className="text-sm font-semibold text-zinc-900">Novo lancamento a receber</h3>
@@ -639,15 +642,15 @@ export function ReceivablesModule() {
 export function PayablesModule() {
   const {
     store,
-    ensureLoaded,
+    loading,
+    error: storeError,
     createPayable,
     markPayablePaid,
     deletePayable,
   } = useAppStore();
   const [error, setError] = useState<string | null>(null);
 
-  ensureLoaded();
-  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">Carregando pagamentos...</article>;
+  if (!store) return <article className="cc-card p-4 text-sm text-zinc-600">{loading ? "Carregando pagamentos..." : "Sem dados para pagamentos."}</article>;
 
   const payables = store.payables;
   const totalOpen = payables.filter((p) => p.status !== "PAID").reduce((acc, p) => acc + p.amount, 0);
@@ -691,6 +694,7 @@ export function PayablesModule() {
       </div>
 
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+      {storeError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{storeError.message}</p> : null}
 
       <article className="cc-card p-4">
         <h3 className="text-sm font-semibold text-zinc-900">Novo lancamento a pagar</h3>

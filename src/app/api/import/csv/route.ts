@@ -1,152 +1,163 @@
+import Papa from "papaparse";
 import { NextResponse } from "next/server";
 import type { DbSnapshot } from "@/lib/db-types";
-import { replaceSnapshot } from "@/lib/db-service";
+import { getSnapshot, replaceSnapshot } from "@/lib/db-service";
+import { withApiAuth } from "@/lib/api-guard";
 
 type CsvKind = "accounts" | "transactions" | "clients" | "contracts" | "receivables" | "payables";
 
 const parseCsv = (raw: string) => {
-  const lines = raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (!lines.length) return { headers: [], rows: [] as string[][] };
-  const headers = lines[0].split(",").map((x) => x.trim());
-  const rows = lines.slice(1).map((line) => line.split(",").map((x) => x.trim()));
-  return { headers, rows };
+  const parsed = Papa.parse<Record<string, string>>(raw, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h) => h.trim(),
+  });
+  if (parsed.errors.length) {
+    throw new Error(parsed.errors[0]?.message ?? "CSV invalido.");
+  }
+  return parsed.data;
 };
 
-const mapRows = (headers: string[], rows: string[][]) =>
-  rows.map((cols) => {
-    const out: Record<string, string> = {};
-    headers.forEach((h, i) => {
-      out[h] = cols[i] ?? "";
-    });
-    return out;
-  });
+const buildSnapshotFromCsv = (
+  kind: CsvKind,
+  rows: Record<string, string>[],
+  base: DbSnapshot,
+): DbSnapshot => {
+  const snapshot: DbSnapshot = {
+    accounts: [...base.accounts],
+    transactions: [...base.transactions],
+    clients: [...base.clients],
+    contracts: [...base.contracts],
+    receivables: [...base.receivables],
+    payables: [...base.payables],
+  };
+
+  switch (kind) {
+    case "accounts":
+      snapshot.accounts.push(
+        ...rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          type: r.type as DbSnapshot["accounts"][number]["type"],
+          institution: r.institution as DbSnapshot["accounts"][number]["institution"],
+          balance: Number(r.balance || 0),
+        })),
+      );
+      break;
+    case "transactions":
+      snapshot.transactions.push(
+        ...rows.map((r) => ({
+          id: r.id,
+          date: r.date,
+          direction: r.direction as DbSnapshot["transactions"][number]["direction"],
+          description: r.description,
+          amount: Number(r.amount || 0),
+          accountId: r.accountId,
+          category: r.category,
+          costCenter: r.costCenter,
+          clientId: r.clientId || undefined,
+          duplicateHash: r.duplicateHash || "",
+        })),
+      );
+      break;
+    case "clients":
+      snapshot.clients.push(
+        ...rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          status: r.status as DbSnapshot["clients"][number]["status"],
+          monthlyValue: Number(r.monthlyValue || 0),
+          startDate: r.startDate,
+        })),
+      );
+      break;
+    case "contracts":
+      snapshot.contracts.push(
+        ...rows.map((r) => ({
+          id: r.id,
+          clientId: r.clientId,
+          title: r.title,
+          monthlyValue: Number(r.monthlyValue || 0),
+          startsAt: r.startsAt,
+          dueDay: Number(r.dueDay || 10),
+          services: r.services,
+        })),
+      );
+      break;
+    case "receivables":
+      snapshot.receivables.push(
+        ...rows.map((r) => ({
+          id: r.id,
+          clientId: r.clientId,
+          competency: r.competency,
+          expectedAmount: Number(r.expectedAmount || 0),
+          receivedAmount: Number(r.receivedAmount || 0),
+          expectedDate: r.expectedDate,
+          receivedDate: r.receivedDate || undefined,
+          status: r.status as DbSnapshot["receivables"][number]["status"],
+          accountId: r.accountId || undefined,
+          notes: r.notes || undefined,
+        })),
+      );
+      break;
+    case "payables":
+      snapshot.payables.push(
+        ...rows.map((r) => ({
+          id: r.id,
+          description: r.description,
+          provider: r.provider || undefined,
+          category: r.category,
+          costCenter: r.costCenter,
+          amount: Number(r.amount || 0),
+          dueDate: r.dueDate,
+          status: r.status as DbSnapshot["payables"][number]["status"],
+          type: r.type as DbSnapshot["payables"][number]["type"],
+          accountId: r.accountId || undefined,
+          notes: r.notes || undefined,
+        })),
+      );
+      break;
+  }
+  return snapshot;
+};
 
 export async function POST(request: Request) {
-  try {
+  return withApiAuth(async (session) => {
     const body = (await request.json()) as {
       kind: CsvKind;
       csv: string;
+      mode?: "preview" | "commit";
       replaceAll?: boolean;
-      currentSnapshot?: DbSnapshot;
     };
 
     if (!body.kind || !body.csv) {
       return NextResponse.json({ error: "Informe kind e csv." }, { status: 400 });
     }
 
-    const parsed = parseCsv(body.csv);
-    const mapped = mapRows(parsed.headers, parsed.rows);
+    const rows = parseCsv(body.csv);
+    const base = body.replaceAll
+      ? { accounts: [], transactions: [], clients: [], contracts: [], receivables: [], payables: [] }
+      : await getSnapshot(session);
+    const snapshot = buildSnapshotFromCsv(body.kind, rows, base);
 
-    const base: DbSnapshot =
-      body.replaceAll || !body.currentSnapshot
-        ? { accounts: [], transactions: [], clients: [], contracts: [], receivables: [], payables: [] }
-        : body.currentSnapshot;
-
-    const snapshot: DbSnapshot = {
-      accounts: [...base.accounts],
-      transactions: [...base.transactions],
-      clients: [...base.clients],
-      contracts: [...base.contracts],
-      receivables: [...base.receivables],
-      payables: [...base.payables],
-    };
-
-    switch (body.kind) {
-      case "accounts":
-        snapshot.accounts.push(
-          ...mapped.map((r) => ({
-            id: r.id,
-            name: r.name,
-            type: r.type as DbSnapshot["accounts"][number]["type"],
-            institution: r.institution as DbSnapshot["accounts"][number]["institution"],
-            balance: Number(r.balance || 0),
-          })),
-        );
-        break;
-      case "transactions":
-        snapshot.transactions.push(
-          ...mapped.map((r) => ({
-            id: r.id,
-            date: r.date,
-            direction: r.direction as DbSnapshot["transactions"][number]["direction"],
-            description: r.description,
-            amount: Number(r.amount || 0),
-            accountId: r.accountId,
-            category: r.category,
-            costCenter: r.costCenter,
-            clientId: r.clientId || undefined,
-            duplicateHash: r.duplicateHash || "",
-          })),
-        );
-        break;
-      case "clients":
-        snapshot.clients.push(
-          ...mapped.map((r) => ({
-            id: r.id,
-            name: r.name,
-            status: r.status as DbSnapshot["clients"][number]["status"],
-            monthlyValue: Number(r.monthlyValue || 0),
-            startDate: r.startDate,
-          })),
-        );
-        break;
-      case "contracts":
-        snapshot.contracts.push(
-          ...mapped.map((r) => ({
-            id: r.id,
-            clientId: r.clientId,
-            title: r.title,
-            monthlyValue: Number(r.monthlyValue || 0),
-            startsAt: r.startsAt,
-            dueDay: Number(r.dueDay || 10),
-            services: r.services,
-          })),
-        );
-        break;
-      case "receivables":
-        snapshot.receivables.push(
-          ...mapped.map((r) => ({
-            id: r.id,
-            clientId: r.clientId,
-            competency: r.competency,
-            expectedAmount: Number(r.expectedAmount || 0),
-            receivedAmount: Number(r.receivedAmount || 0),
-            expectedDate: r.expectedDate,
-            receivedDate: r.receivedDate || undefined,
-            status: r.status as DbSnapshot["receivables"][number]["status"],
-            accountId: r.accountId || undefined,
-            notes: r.notes || undefined,
-          })),
-        );
-        break;
-      case "payables":
-        snapshot.payables.push(
-          ...mapped.map((r) => ({
-            id: r.id,
-            description: r.description,
-            provider: r.provider || undefined,
-            category: r.category,
-            costCenter: r.costCenter,
-            amount: Number(r.amount || 0),
-            dueDate: r.dueDate,
-            status: r.status as DbSnapshot["payables"][number]["status"],
-            type: r.type as DbSnapshot["payables"][number]["type"],
-            accountId: r.accountId || undefined,
-            notes: r.notes || undefined,
-          })),
-        );
-        break;
+    if (body.mode === "preview") {
+      return NextResponse.json({
+        ok: true,
+        mode: "preview",
+        rows: rows.length,
+        totals: {
+          accounts: snapshot.accounts.length,
+          transactions: snapshot.transactions.length,
+          clients: snapshot.clients.length,
+          contracts: snapshot.contracts.length,
+          receivables: snapshot.receivables.length,
+          payables: snapshot.payables.length,
+        },
+        sample: rows.slice(0, 5),
+      });
     }
 
-    await replaceSnapshot(snapshot);
-    return NextResponse.json({ ok: true, importedRows: mapped.length });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Falha ao importar CSV.", detail: String(error) },
-      { status: 500 },
-    );
-  }
+    await replaceSnapshot(session, snapshot);
+    return NextResponse.json({ ok: true, mode: "commit", importedRows: rows.length });
+  });
 }

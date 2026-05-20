@@ -8,6 +8,7 @@ import type {
   ReceivableRow,
   TransactionRow,
 } from "@/lib/db-types";
+import type { SessionPayload } from "@/lib/auth";
 import type {
   AccountInput,
   ClientInput,
@@ -17,25 +18,25 @@ import type {
   TransactionInput,
 } from "@/lib/validators";
 
-const WORKSPACE_ID = "ws_caixacomando";
+const getWorkspaceId = (session: SessionPayload) => session.workspaceId;
 
-const ensureWorkspace = async () => {
+const ensureWorkspace = async (workspaceId: string) => {
   await prisma.workspace.upsert({
-    where: { id: WORKSPACE_ID },
+    where: { id: workspaceId },
     update: {},
-    create: { id: WORKSPACE_ID, name: "CaixaComando" },
+    create: { id: workspaceId, name: "CaixaComando" },
   });
 };
 
-const ensureCategory = async (name: string, isIncome: boolean) => {
+const ensureCategory = async (workspaceId: string, name: string, isIncome: boolean) => {
   const slug = name.trim().toLowerCase().replaceAll(" ", "_");
   const existing = await prisma.category.findFirst({
-    where: { workspaceId: WORKSPACE_ID, slug, deletedAt: null },
+    where: { workspaceId, slug, deletedAt: null },
   });
   if (existing) return existing;
   return prisma.category.create({
     data: {
-      workspaceId: WORKSPACE_ID,
+      workspaceId,
       name,
       slug,
       isIncome,
@@ -44,31 +45,32 @@ const ensureCategory = async (name: string, isIncome: boolean) => {
   });
 };
 
-const ensureCostCenter = async (name: string) => {
+const ensureCostCenter = async (workspaceId: string, name: string) => {
   const existing = await prisma.costCenter.findFirst({
-    where: { workspaceId: WORKSPACE_ID, name, deletedAt: null },
+    where: { workspaceId, name, deletedAt: null },
   });
   if (existing) return existing;
   return prisma.costCenter.create({
-    data: { workspaceId: WORKSPACE_ID, name },
+    data: { workspaceId, name },
   });
 };
 
-export const getSnapshot = async (): Promise<DbSnapshot> => {
-  await ensureWorkspace();
+export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
 
   const [accounts, clients, contracts, transactions, receivables, payables] = await Promise.all([
-    prisma.account.findMany({ where: { workspaceId: WORKSPACE_ID, deletedAt: null }, orderBy: { createdAt: "desc" } }),
-    prisma.client.findMany({ where: { workspaceId: WORKSPACE_ID, deletedAt: null }, orderBy: { createdAt: "desc" } }),
-    prisma.contract.findMany({ where: { workspaceId: WORKSPACE_ID, deletedAt: null }, orderBy: { createdAt: "desc" } }),
+    prisma.account.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
+    prisma.client.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
+    prisma.contract.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.transaction.findMany({
-      where: { workspaceId: WORKSPACE_ID, deletedAt: null, direction: { in: ["INCOME", "EXPENSE"] } },
+      where: { workspaceId, deletedAt: null, direction: { in: ["INCOME", "EXPENSE"] } },
       include: { category: true, costCenter: true },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.receivable.findMany({ where: { workspaceId: WORKSPACE_ID, deletedAt: null }, orderBy: { createdAt: "desc" } }),
+    prisma.receivable.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.payable.findMany({
-      where: { workspaceId: WORKSPACE_ID, deletedAt: null },
+      where: { workspaceId, deletedAt: null },
       include: { category: true, costCenter: true, provider: true },
       orderBy: { createdAt: "desc" },
     }),
@@ -97,7 +99,7 @@ export const getSnapshot = async (): Promise<DbSnapshot> => {
     monthlyValue: Number(c.monthlyValue),
     startsAt: c.startsAt.toISOString().slice(0, 10),
     dueDay: c.dueDay,
-    services: c.services.join(", "),
+    services: c.notes ?? c.services.join(", "),
   }));
 
   const txRows: TransactionRow[] = transactions.map((t) => ({
@@ -150,11 +152,12 @@ export const getSnapshot = async (): Promise<DbSnapshot> => {
   };
 };
 
-export const createAccount = async (input: AccountInput) => {
-  await ensureWorkspace();
+export const createAccount = async (session: SessionPayload, input: AccountInput) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
   return prisma.account.create({
     data: {
-      workspaceId: WORKSPACE_ID,
+      workspaceId,
       name: input.name,
       type: input.type,
       institution: input.institution,
@@ -164,11 +167,12 @@ export const createAccount = async (input: AccountInput) => {
   });
 };
 
-export const createClient = async (input: ClientInput) => {
-  await ensureWorkspace();
+export const createClient = async (session: SessionPayload, input: ClientInput) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
   return prisma.client.create({
     data: {
-      workspaceId: WORKSPACE_ID,
+      workspaceId,
       name: input.name,
       status: input.status,
       monthlyContract: input.monthlyValue,
@@ -178,11 +182,12 @@ export const createClient = async (input: ClientInput) => {
   });
 };
 
-export const createContract = async (input: ContractInput) => {
-  await ensureWorkspace();
+export const createContract = async (session: SessionPayload, input: ContractInput) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
   return prisma.contract.create({
     data: {
-      workspaceId: WORKSPACE_ID,
+      workspaceId,
       clientId: input.clientId,
       title: input.title,
       monthlyValue: input.monthlyValue,
@@ -194,8 +199,9 @@ export const createContract = async (input: ContractInput) => {
   });
 };
 
-export const createTransaction = async (input: TransactionInput) => {
-  await ensureWorkspace();
+export const createTransaction = async (session: SessionPayload, input: TransactionInput) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
   const duplicateHash = [
     input.date.slice(0, 10),
     input.direction,
@@ -205,23 +211,25 @@ export const createTransaction = async (input: TransactionInput) => {
   ].join("|");
 
   const duplicate = await prisma.transaction.findFirst({
-    where: { workspaceId: WORKSPACE_ID, duplicateHash, deletedAt: null },
+    where: { workspaceId, duplicateHash, deletedAt: null },
   });
   if (duplicate) return { duplicate: true as const };
 
-  const category = await ensureCategory(input.category, input.direction === "INCOME");
-  const costCenter = await ensureCostCenter(input.costCenter);
+  const category = await ensureCategory(workspaceId, input.category, input.direction === "INCOME");
+  const costCenter = await ensureCostCenter(workspaceId, input.costCenter);
+  const account = await prisma.account.findFirst({ where: { id: input.accountId, workspaceId, deletedAt: null } });
+  if (!account) throw new Error("Conta invalida para transacao.");
 
   await prisma.transaction.create({
     data: {
-      workspaceId: WORKSPACE_ID,
+      workspaceId,
       transactionAt: new Date(input.date),
       competency: new Date(input.date),
       direction: input.direction,
       description: input.description,
       amount: input.amount,
-      accountType: "BUSINESS_AGENCY",
-      institution: "OTHER",
+      accountType: account.type,
+      institution: account.institution,
       accountId: input.accountId || undefined,
       categoryId: category.id,
       costCenterId: costCenter.id,
@@ -232,11 +240,12 @@ export const createTransaction = async (input: TransactionInput) => {
   return { duplicate: false as const };
 };
 
-export const createReceivable = async (input: ReceivableInput) => {
-  await ensureWorkspace();
+export const createReceivable = async (session: SessionPayload, input: ReceivableInput) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
   return prisma.receivable.create({
     data: {
-      workspaceId: WORKSPACE_ID,
+      workspaceId,
       clientId: input.clientId,
       competency: new Date(input.competency),
       expectedAmount: input.expectedAmount,
@@ -250,22 +259,23 @@ export const createReceivable = async (input: ReceivableInput) => {
   });
 };
 
-export const createPayable = async (input: PayableInput) => {
-  await ensureWorkspace();
-  const category = await ensureCategory(input.category, false);
-  const costCenter = await ensureCostCenter(input.costCenter);
+export const createPayable = async (session: SessionPayload, input: PayableInput) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
+  const category = await ensureCategory(workspaceId, input.category, false);
+  const costCenter = await ensureCostCenter(workspaceId, input.costCenter);
   let providerId: string | undefined;
   if (input.provider) {
     const provider = await prisma.provider.upsert({
-      where: { workspaceId_name: { workspaceId: WORKSPACE_ID, name: input.provider } },
+      where: { workspaceId_name: { workspaceId, name: input.provider } },
       update: {},
-      create: { workspaceId: WORKSPACE_ID, name: input.provider },
+      create: { workspaceId, name: input.provider },
     });
     providerId = provider.id;
   }
   return prisma.payable.create({
     data: {
-      workspaceId: WORKSPACE_ID,
+      workspaceId,
       description: input.description,
       providerId,
       categoryId: category.id,
@@ -281,33 +291,36 @@ export const createPayable = async (input: PayableInput) => {
 };
 
 export const softDelete = async (
+  session: SessionPayload,
   entity: "account" | "transaction" | "client" | "contract" | "receivable" | "payable",
   id: string,
 ) => {
+  const workspaceId = getWorkspaceId(session);
   const deletedAt = new Date();
   switch (entity) {
     case "account":
-      return prisma.account.update({ where: { id }, data: { deletedAt, isActive: false } });
+      return prisma.account.updateMany({ where: { id, workspaceId }, data: { deletedAt, isActive: false } });
     case "transaction":
-      return prisma.transaction.update({ where: { id }, data: { deletedAt } });
+      return prisma.transaction.updateMany({ where: { id, workspaceId }, data: { deletedAt } });
     case "client":
-      return prisma.client.update({ where: { id }, data: { deletedAt } });
+      return prisma.client.updateMany({ where: { id, workspaceId }, data: { deletedAt } });
     case "contract":
-      return prisma.contract.update({ where: { id }, data: { deletedAt } });
+      return prisma.contract.updateMany({ where: { id, workspaceId }, data: { deletedAt } });
     case "receivable":
-      return prisma.receivable.update({ where: { id }, data: { deletedAt } });
+      return prisma.receivable.updateMany({ where: { id, workspaceId }, data: { deletedAt } });
     case "payable":
-      return prisma.payable.update({ where: { id }, data: { deletedAt } });
+      return prisma.payable.updateMany({ where: { id, workspaceId }, data: { deletedAt } });
     default:
       return null;
   }
 };
 
-export const markReceivablePaid = async (id: string) => {
-  const current = await prisma.receivable.findUnique({ where: { id } });
+export const markReceivablePaid = async (session: SessionPayload, id: string) => {
+  const workspaceId = getWorkspaceId(session);
+  const current = await prisma.receivable.findFirst({ where: { id, workspaceId, deletedAt: null } });
   if (!current) return null;
-  return prisma.receivable.update({
-    where: { id },
+  return prisma.receivable.updateMany({
+    where: { id, workspaceId, deletedAt: null },
     data: {
       status: "PAID",
       receivedAmount: current.receivedAmount.toNumber() > 0 ? current.receivedAmount : current.expectedAmount,
@@ -316,35 +329,38 @@ export const markReceivablePaid = async (id: string) => {
   });
 };
 
-export const markPayablePaid = async (id: string) =>
-  prisma.payable.update({
-    where: { id },
+export const markPayablePaid = async (session: SessionPayload, id: string) => {
+  const workspaceId = getWorkspaceId(session);
+  return prisma.payable.updateMany({
+    where: { id, workspaceId, deletedAt: null },
     data: { status: "PAID", paidAt: new Date() },
   });
+};
 
-export const replaceSnapshot = async (snapshot: DbSnapshot) => {
-  await ensureWorkspace();
+export const replaceSnapshot = async (session: SessionPayload, snapshot: DbSnapshot) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
 
   const categoryMap = new Map<string, string>();
   const costCenterMap = new Map<string, string>();
   const providerMap = new Map<string, string>();
 
   await prisma.$transaction(async (tx) => {
-    await tx.transaction.deleteMany({ where: { workspaceId: WORKSPACE_ID } });
-    await tx.payable.deleteMany({ where: { workspaceId: WORKSPACE_ID } });
-    await tx.receivable.deleteMany({ where: { workspaceId: WORKSPACE_ID } });
-    await tx.contract.deleteMany({ where: { workspaceId: WORKSPACE_ID } });
-    await tx.client.deleteMany({ where: { workspaceId: WORKSPACE_ID } });
-    await tx.account.deleteMany({ where: { workspaceId: WORKSPACE_ID } });
-    await tx.provider.deleteMany({ where: { workspaceId: WORKSPACE_ID } });
-    await tx.costCenter.deleteMany({ where: { workspaceId: WORKSPACE_ID } });
-    await tx.category.deleteMany({ where: { workspaceId: WORKSPACE_ID } });
+    await tx.transaction.deleteMany({ where: { workspaceId } });
+    await tx.payable.deleteMany({ where: { workspaceId } });
+    await tx.receivable.deleteMany({ where: { workspaceId } });
+    await tx.contract.deleteMany({ where: { workspaceId } });
+    await tx.client.deleteMany({ where: { workspaceId } });
+    await tx.account.deleteMany({ where: { workspaceId } });
+    await tx.provider.deleteMany({ where: { workspaceId } });
+    await tx.costCenter.deleteMany({ where: { workspaceId } });
+    await tx.category.deleteMany({ where: { workspaceId } });
 
     for (const account of snapshot.accounts) {
       await tx.account.create({
         data: {
           id: account.id,
-          workspaceId: WORKSPACE_ID,
+          workspaceId,
           name: account.name,
           type: account.type,
           institution: account.institution,
@@ -358,7 +374,7 @@ export const replaceSnapshot = async (snapshot: DbSnapshot) => {
       await tx.client.create({
         data: {
           id: client.id,
-          workspaceId: WORKSPACE_ID,
+          workspaceId,
           name: client.name,
           status: client.status,
           monthlyContract: client.monthlyValue,
@@ -372,7 +388,7 @@ export const replaceSnapshot = async (snapshot: DbSnapshot) => {
       await tx.contract.create({
         data: {
           id: contract.id,
-          workspaceId: WORKSPACE_ID,
+          workspaceId,
           clientId: contract.clientId,
           title: contract.title,
           monthlyValue: contract.monthlyValue,
@@ -402,7 +418,7 @@ export const replaceSnapshot = async (snapshot: DbSnapshot) => {
       const slug = name.trim().toLowerCase().replaceAll(" ", "_");
       const category = await tx.category.create({
         data: {
-          workspaceId: WORKSPACE_ID,
+          workspaceId,
           name,
           slug,
           isIncome: snapshot.transactions.some((t) => t.category === name && t.direction === "INCOME"),
@@ -413,27 +429,28 @@ export const replaceSnapshot = async (snapshot: DbSnapshot) => {
     }
 
     for (const name of costCenterNames) {
-      const cc = await tx.costCenter.create({ data: { workspaceId: WORKSPACE_ID, name } });
+      const cc = await tx.costCenter.create({ data: { workspaceId, name } });
       costCenterMap.set(name, cc.id);
     }
 
     for (const name of providerNames) {
-      const provider = await tx.provider.create({ data: { workspaceId: WORKSPACE_ID, name } });
+      const provider = await tx.provider.create({ data: { workspaceId, name } });
       providerMap.set(name, provider.id);
     }
 
     for (const t of snapshot.transactions) {
+      const account = await tx.account.findFirst({ where: { id: t.accountId, workspaceId } });
       await tx.transaction.create({
         data: {
           id: t.id,
-          workspaceId: WORKSPACE_ID,
+          workspaceId,
           transactionAt: new Date(t.date),
           competency: new Date(t.date),
           direction: t.direction,
           description: t.description,
           amount: t.amount,
-          accountType: "BUSINESS_AGENCY",
-          institution: "OTHER",
+          accountType: account?.type ?? "BUSINESS_AGENCY",
+          institution: account?.institution ?? "OTHER",
           accountId: t.accountId || undefined,
           categoryId: categoryMap.get(t.category),
           costCenterId: costCenterMap.get(t.costCenter),
@@ -447,7 +464,7 @@ export const replaceSnapshot = async (snapshot: DbSnapshot) => {
       await tx.receivable.create({
         data: {
           id: r.id,
-          workspaceId: WORKSPACE_ID,
+          workspaceId,
           clientId: r.clientId,
           competency: new Date(r.competency),
           expectedAmount: r.expectedAmount,
@@ -465,7 +482,7 @@ export const replaceSnapshot = async (snapshot: DbSnapshot) => {
       await tx.payable.create({
         data: {
           id: p.id,
-          workspaceId: WORKSPACE_ID,
+          workspaceId,
           description: p.description,
           providerId: p.provider ? providerMap.get(p.provider) : undefined,
           categoryId: categoryMap.get(p.category),

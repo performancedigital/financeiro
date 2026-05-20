@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { softDelete } from "@/lib/db-service";
+import { withApiAuth } from "@/lib/api-guard";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
 export async function DELETE(_request: Request, context: RouteContext) {
-  try {
+  return withApiAuth(async (session) => {
     const { id } = await context.params;
-    await softDelete("contract", id);
+    await softDelete(session, "contract", id);
     return NextResponse.json({ ok: true });
-  } catch (error) {
-    return NextResponse.json({ error: "Falha ao excluir contrato.", detail: String(error) }, { status: 500 });
-  }
+  });
 }

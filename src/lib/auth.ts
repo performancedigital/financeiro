@@ -78,3 +78,11 @@ export const requireSession = async () => {
   if (!session) redirect("/login");
   return session;
 };
+
+export const requireApiSession = async (): Promise<SessionPayload> => {
+  const session = await getSession();
+  if (!session) {
+    throw new Error("UNAUTHORIZED");
+  }
+  return session;
+};

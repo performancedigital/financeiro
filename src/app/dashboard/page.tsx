@@ -62,7 +62,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <article className="cc-card p-4">
               <h3 className="text-sm font-semibold text-zinc-900">Importacao e orquestracao de dados</h3>
               <p className="mt-1 text-sm text-zinc-600">
-                Use o endpoint <code>/api/import/csv</code> para importar CSV por tipo e distribuir automaticamente nos modulos.
+                Use o modulo <code>Relatorios</code> para preview e importacao CSV guiada.
               </p>
               <p className="mt-1 text-sm text-zinc-600">
                 Endpoints: <code>accounts</code>, <code>transactions</code>, <code>clients</code>, <code>contracts</code>, <code>receivables</code>, <code>payables</code>.

@@ -67,6 +67,12 @@ O app agora usa PostgreSQL via Prisma para CRUD real dos módulos:
 
 Sem depender de mock em tela.
 
+## Segurança e autorização
+
+- Todas as APIs de dados exigem sessão válida.
+- Cada operação usa `workspaceId` da sessão (isolamento por workspace).
+- Credenciais atuais seguem em modo MVP, mas o acesso às rotas foi protegido.
+
 ## Importação CSV e orquestração dos dados
 
 Quem orquestra a distribuição dos dados por aba é o backend (`/api/import/csv`).
@@ -78,6 +84,11 @@ Fluxo:
 3. Mapeia para o tipo correto.
 4. Persiste em PostgreSQL.
 5. Cada aba lê do banco e exibe seus dados.
+
+Agora com dois modos:
+
+- `preview`: valida e mostra resumo (não grava)
+- `commit`: persiste no banco
 
 `kind` suportados:
 
@@ -97,8 +108,20 @@ Exemplo de chamada:
 ```bash
 curl -X POST http://localhost:3000/api/import/csv ^
   -H "Content-Type: application/json" ^
-  -d "{\"kind\":\"accounts\",\"csv\":\"id,name,type,institution,balance\nacc1,Sicoob pessoal,PERSONAL_HELBERT,SICOOB,6200\"}"
+  -d "{\"kind\":\"accounts\",\"mode\":\"preview\",\"csv\":\"id,name,type,institution,balance\nacc1,Sicoob pessoal,PERSONAL_HELBERT,SICOOB,6200\"}"
 ```
+
+## Fluxo e DRE
+
+- Fluxo mensal calculado por transações agrupadas por `YYYY-MM`.
+- DRE simplificada calcula:
+  - Receita bruta
+  - Impostos
+  - Equipe
+  - Ferramentas
+  - Pró-labore
+  - Resultado operacional
+  - Margem operacional
 
 ## Variáveis de ambiente
 

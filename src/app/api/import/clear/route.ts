@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { replaceSnapshot } from "@/lib/db-service";
+import { withApiAuth } from "@/lib/api-guard";
 
 export async function POST() {
-  try {
-    await replaceSnapshot({
+  return withApiAuth(async (session) => {
+    await replaceSnapshot(session, {
       accounts: [],
       transactions: [],
       clients: [],
@@ -12,7 +13,5 @@ export async function POST() {
       payables: [],
     });
     return NextResponse.json({ ok: true });
-  } catch (error) {
-    return NextResponse.json({ error: "Falha ao limpar base.", detail: String(error) }, { status: 500 });
-  }
+  });
 }

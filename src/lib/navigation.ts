@@ -9,7 +9,7 @@ export type AppModuleKey =
   | "dividas"
   | "documentos"
   | "projecoes"
-  | "relatorios"
+  | "importar"
   | "configuracoes";
 
 export type AppModule = {
@@ -29,7 +29,7 @@ export const appModules: AppModule[] = [
   { key: "dividas", label: "Dividas", description: "Emprestimos e simulacoes" },
   { key: "documentos", label: "Documentos", description: "Contratos e comprovantes" },
   { key: "projecoes", label: "Projecoes", description: "Visao ate dezembro" },
-  { key: "relatorios", label: "Relatorios", description: "PDF e Excel executivos" },
+  { key: "importar", label: "Importar Dados", description: "Importação em massa via CSV" },
   { key: "configuracoes", label: "Configurações", description: "Categorias, centros de custo e preferências" },
 ];
 

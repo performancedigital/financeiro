@@ -12,6 +12,8 @@ const snapshot: DbSnapshot = {
   categories: [],
   costCenters: [],
   workspaceOptions: [],
+  debts: [],
+  documents: [],
   transactions: [
     {
       id: "1",

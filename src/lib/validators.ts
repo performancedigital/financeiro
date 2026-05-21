@@ -72,3 +72,30 @@ export type ClientInput = z.infer<typeof clientSchema>;
 export type ContractInput = z.infer<typeof contractSchema>;
 export type ReceivableInput = z.infer<typeof receivableSchema>;
 export type PayableInput = z.infer<typeof payableSchema>;
+
+export const debtSchema = z.object({
+  creditor: z.string().min(2),
+  type: z.string().min(1),
+  originalAmount: z.coerce.number().positive(),
+  outstandingAmount: z.coerce.number().nonnegative(),
+  monthlyRate: z.coerce.number().nonnegative().optional(),
+  dueDate: z.string().optional(),
+  totalInstalments: z.coerce.number().int().positive().optional(),
+  paidInstalments: z.coerce.number().int().nonnegative().default(0),
+  status: z.string().min(1),
+  notes: z.string().optional(),
+});
+
+export const documentSchema = z.object({
+  name: z.string().min(2),
+  type: z.string().min(1),
+  url: z.string().optional(),
+  clientId: z.string().optional(),
+  amount: z.coerce.number().nonnegative().optional(),
+  documentDate: z.string().optional(),
+  notes: z.string().optional(),
+  tags: z.string().optional(),
+});
+
+export type DebtInput = z.infer<typeof debtSchema>;
+export type DocumentInput = z.infer<typeof documentSchema>;

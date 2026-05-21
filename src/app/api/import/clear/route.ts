@@ -14,6 +14,8 @@ export async function POST() {
       categories: [],
       costCenters: [],
       workspaceOptions: [],
+      debts: [],
+      documents: [],
     });
     return NextResponse.json({ ok: true });
   });

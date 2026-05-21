@@ -6,6 +6,8 @@ import type {
   ContractRow,
   CostCenterRow,
   DbSnapshot,
+  DebtRow,
+  DocumentRow,
   PayableRow,
   ReceivableRow,
   TransactionRow,
@@ -16,6 +18,8 @@ import type {
   AccountInput,
   ClientInput,
   ContractInput,
+  DebtInput,
+  DocumentInput,
   PayableInput,
   ReceivableInput,
   TransactionInput,
@@ -62,7 +66,7 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
   const workspaceId = getWorkspaceId(session);
   await ensureWorkspace(workspaceId);
 
-  const [accounts, clients, contracts, transactions, receivables, payables, categories, costCenters, workspaceOptions] = await Promise.all([
+  const [accounts, clients, contracts, transactions, receivables, payables, categories, costCenters, workspaceOptions, debts, documents] = await Promise.all([
     prisma.account.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.client.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.contract.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
@@ -83,6 +87,8 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
       where: { workspaceId, deletedAt: null },
       orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { label: "asc" }],
     }),
+    prisma.debt.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
+    prisma.document.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
   ]);
 
   const accountRows: AccountRow[] = accounts.map((a) => ({
@@ -172,6 +178,21 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
     sortOrder: o.sortOrder,
   }));
 
+  const debtRows: DebtRow[] = debts.map((d) => ({
+    id: d.id, creditor: d.creditor, type: d.type,
+    originalAmount: Number(d.originalAmount), outstandingAmount: Number(d.outstandingAmount),
+    monthlyRate: d.monthlyRate ? Number(d.monthlyRate) : undefined,
+    dueDate: d.dueDate?.toISOString().slice(0,10), totalInstalments: d.totalInstalments ?? undefined,
+    paidInstalments: d.paidInstalments, status: d.status, notes: d.notes ?? undefined,
+  }));
+
+  const documentRows: DocumentRow[] = documents.map((d) => ({
+    id: d.id, name: d.name, type: d.type, url: d.url ?? undefined,
+    clientId: d.clientId ?? undefined, amount: d.amount ? Number(d.amount) : undefined,
+    documentDate: d.documentDate?.toISOString().slice(0,10),
+    notes: d.notes ?? undefined, tags: d.tags,
+  }));
+
   return {
     accounts: accountRows,
     transactions: txRows,
@@ -182,6 +203,8 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
     categories: categoryRows,
     costCenters: costCenterRows,
     workspaceOptions: workspaceOptionRows,
+    debts: debtRows,
+    documents: documentRows,
   };
 };
 
@@ -463,7 +486,6 @@ export const deleteWorkspaceOption = async (session: SessionPayload, id: string)
 export const replaceSnapshot = async (session: SessionPayload, snapshot: DbSnapshot) => {
   const workspaceId = getWorkspaceId(session);
   await ensureWorkspace(workspaceId);
-
   const categoryMap = new Map<string, string>();
   const costCenterMap = new Map<string, string>();
   const providerMap = new Map<string, string>();
@@ -620,4 +642,76 @@ export const replaceSnapshot = async (session: SessionPayload, snapshot: DbSnaps
       });
     }
   });
+};
+
+export const createDebt = async (session: SessionPayload, input: DebtInput) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
+  return prisma.debt.create({
+    data: {
+      workspaceId, creditor: input.creditor, type: input.type,
+      originalAmount: input.originalAmount, outstandingAmount: input.outstandingAmount,
+      monthlyRate: input.monthlyRate, dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+      totalInstalments: input.totalInstalments, paidInstalments: input.paidInstalments ?? 0,
+      status: input.status, notes: input.notes,
+    },
+  });
+};
+
+export const deleteDebt = async (session: SessionPayload, id: string) => {
+  const workspaceId = getWorkspaceId(session);
+  return prisma.debt.updateMany({ where: { id, workspaceId }, data: { deletedAt: new Date() } });
+};
+
+export const createDocument = async (session: SessionPayload, input: DocumentInput) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
+  return prisma.document.create({
+    data: {
+      workspaceId, name: input.name, type: input.type,
+      url: input.url || undefined, clientId: input.clientId || undefined,
+      amount: input.amount, documentDate: input.documentDate ? new Date(input.documentDate) : undefined,
+      notes: input.notes, tags: input.tags ? input.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+    },
+  });
+};
+
+export const deleteDocument = async (session: SessionPayload, id: string) => {
+  const workspaceId = getWorkspaceId(session);
+  return prisma.document.updateMany({ where: { id, workspaceId }, data: { deletedAt: new Date() } });
+};
+
+export const smartImportTransactions = async (
+  session: SessionPayload,
+  rows: Array<{
+    date: string; direction: string; description: string; amount: number;
+    accountName: string; category: string; costCenter: string; clientName?: string;
+  }>,
+): Promise<{ imported: number; skipped: number; errors: string[] }> => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
+  let imported = 0; let skipped = 0; const errors: string[] = [];
+
+  for (const row of rows) {
+    try {
+      const account = await prisma.account.findFirst({ where: { workspaceId, name: { contains: row.accountName, mode: "insensitive" }, deletedAt: null } });
+      const category = await ensureCategory(workspaceId, row.category, row.direction === "INCOME");
+      const costCenter = await ensureCostCenter(workspaceId, row.costCenter);
+      const client = row.clientName ? await prisma.client.findFirst({ where: { workspaceId, name: { contains: row.clientName, mode: "insensitive" }, deletedAt: null } }) : null;
+
+      const duplicateHash = [row.date.slice(0,10), row.direction, Number(row.amount).toFixed(2), row.description.trim().toLowerCase(), account?.id ?? row.accountName].join("|");
+      const dup = await prisma.transaction.findFirst({ where: { workspaceId, duplicateHash, deletedAt: null } });
+      if (dup) { skipped++; continue; }
+
+      await prisma.transaction.create({ data: {
+        workspaceId, transactionAt: new Date(row.date), competency: new Date(row.date),
+        direction: row.direction as "INCOME"|"EXPENSE", description: row.description,
+        amount: row.amount, accountType: account?.type ?? "OTHER", institution: account?.institution ?? "OTHER",
+        accountId: account?.id, categoryId: category.id, costCenterId: costCenter.id,
+        clientId: client?.id, duplicateHash,
+      }});
+      imported++;
+    } catch (e) { errors.push(`Linha ${rows.indexOf(row)+2}: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  return { imported, skipped, errors };
 };

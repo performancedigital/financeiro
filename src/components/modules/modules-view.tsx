@@ -10,6 +10,9 @@ import {
   ReceivablesModule,
 } from "@/components/modules/operations-modules";
 import { SettingsModule } from "@/components/modules/settings-module";
+import { DebtModule } from "@/components/modules/debt-module";
+import { DocumentModule } from "@/components/modules/document-module";
+import { ImportModule } from "@/components/modules/import-module";
 import { monthlyCashflow, simplifiedDre } from "@/lib/finance-math";
 
 const money = (v: number) =>
@@ -255,210 +258,7 @@ function DreModule() {
   );
 }
 
-/* ── IMPORTADOR CSV ── */
-function ImportModule() {
-  const { importCsvPreview, importCsvCommit, clearAllData, refresh } = useAppStore();
-  const [kind, setKind] = useState("transactions");
-  const [csvText, setCsvText] = useState("");
-  const [replaceAll, setReplaceAll] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-  const [preview, setPreview] = useState<{ rows: number; totals: Record<string, number>; sample: Array<Record<string, string>> } | null>(null);
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setCsvText(String(ev.target?.result ?? ""));
-    reader.readAsText(file, "UTF-8");
-  };
-
-  const doPreview = async () => {
-    if (!csvText.trim()) { setMessage({ type: "err", text: "Cole ou faça upload de um CSV primeiro." }); return; }
-    setLoading(true);
-    try {
-      const p = await importCsvPreview({ kind, csv: csvText, replaceAll });
-      setPreview({ rows: p.rows, totals: p.totals, sample: p.sample });
-      setMessage({ type: "ok", text: `Preview: ${p.rows} linhas encontradas.` });
-    } catch (e) {
-      setMessage({ type: "err", text: (e as { message?: string }).message ?? "Falha no preview." });
-    } finally { setLoading(false); }
-  };
-
-  const doCommit = async () => {
-    if (!csvText.trim()) { setMessage({ type: "err", text: "Nenhum CSV para importar." }); return; }
-    setLoading(true);
-    try {
-      const r = await importCsvCommit({ kind, csv: csvText, replaceAll });
-      setMessage({ type: "ok", text: `✓ Importação concluída: ${r.importedRows} registros gravados no banco.` });
-      setPreview(null);
-      setCsvText("");
-      refresh();
-    } catch (e) {
-      setMessage({ type: "err", text: (e as { message?: string }).message ?? "Falha na importação." });
-    } finally { setLoading(false); }
-  };
-
-  const doClear = async () => {
-    if (!confirm("Isso vai apagar TODOS os dados. Confirma?")) return;
-    setLoading(true);
-    try {
-      await clearAllData();
-      setMessage({ type: "ok", text: "Base de dados limpa com sucesso." });
-      setPreview(null);
-      refresh();
-    } catch (e) {
-      setMessage({ type: "err", text: (e as { message?: string }).message ?? "Falha ao limpar." });
-    } finally { setLoading(false); }
-  };
-
-  const kindLabels: Record<string, string> = {
-    accounts: "Contas",
-    transactions: "Transações",
-    clients: "Clientes",
-    contracts: "Contratos",
-    receivables: "A Receber",
-    payables: "A Pagar",
-  };
-
-  const templates: Record<string, string> = {
-    accounts: "id,name,type,institution,balance\nacc1,Sicoob Pessoal,PERSONAL_HELBERT,SICOOB,5000\nacc2,InfinitePay Empresa,BUSINESS_AGENCY,INFINITEPAY,12000",
-    transactions: "id,date,direction,description,amount,accountId,category,costCenter,clientId\ntxn1,2026-05-01,INCOME,Recebimento Educaminas,2800,acc2,Receita de cliente,Agencia,cli1",
-    clients: "id,name,status,monthlyValue,startDate\ncli1,Educaminas,ACTIVE,2800,2025-06-10\ncli2,Bias Centro Educacional,ACTIVE,2500,2025-08-10",
-    contracts: "id,clientId,title,monthlyValue,startsAt,dueDay,services\nctr1,cli1,Gestao de Trafego,2800,2025-06-10,10,Gestao de trafego",
-    receivables: "id,clientId,competency,expectedAmount,receivedAmount,expectedDate,receivedDate,status,accountId\nrec1,cli1,2026-05-01,2800,2800,2026-05-10,2026-05-10,PAID,acc2",
-    payables: "id,description,provider,category,costCenter,amount,dueDate,status,type\npay1,Google Workspace,Google,Ferramentas,Agencia,190,2026-05-18,PAID,RECURRING",
-  };
-
-  return (
-    <section className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-zinc-900">Importar Dados (CSV)</h1>
-        <p className="text-sm text-zinc-500">Faça upload de um arquivo CSV ou cole o conteúdo abaixo para importar dados em massa.</p>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* Configuração */}
-        <article className="cc-card p-5 space-y-4">
-          <h2 className="text-sm font-bold text-zinc-900">1. Configurar importação</h2>
-
-          <div>
-            <label className="cc-label">Tipo de dados</label>
-            <select value={kind} onChange={(e) => setKind(e.target.value)} className="cc-select">
-              {Object.entries(kindLabels).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="cc-label">Upload de arquivo CSV</label>
-            <input
-              type="file"
-              accept=".csv,.txt"
-              onChange={handleFile}
-              className="block w-full text-sm text-zinc-600 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700 cursor-pointer"
-            />
-          </div>
-
-          <div>
-            <label className="cc-label">Ou cole o CSV abaixo</label>
-            <textarea
-              value={csvText}
-              onChange={(e) => setCsvText(e.target.value)}
-              rows={8}
-              className="cc-input font-mono text-xs resize-y"
-              placeholder={`Exemplo:\n${templates[kind]}`}
-            />
-          </div>
-
-          <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
-            <input type="checkbox" checked={replaceAll} onChange={(e) => setReplaceAll(e.target.checked)} className="rounded" />
-            <span>Substituir todos os dados existentes (apaga antes de importar)</span>
-          </label>
-
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={doPreview} disabled={loading} className="cc-btn-ghost">
-              {loading ? "..." : "Pré-visualizar"}
-            </button>
-            <button type="button" onClick={doCommit} disabled={loading} className="cc-btn-primary">
-              {loading ? "Importando..." : "Importar para o Banco"}
-            </button>
-          </div>
-        </article>
-
-        {/* Template + Instruções */}
-        <article className="cc-card p-5 space-y-4">
-          <h2 className="text-sm font-bold text-zinc-900">2. Estrutura esperada do CSV</h2>
-          <p className="text-xs text-zinc-500">Tipo selecionado: <strong>{kindLabels[kind]}</strong></p>
-          <pre className="overflow-auto rounded-lg bg-zinc-900 text-emerald-300 p-4 text-xs leading-relaxed">
-            {templates[kind]}
-          </pre>
-          <div className="space-y-2 text-xs text-zinc-600">
-            <p className="font-semibold text-zinc-700">Valores aceitos</p>
-            <p><strong>type (conta):</strong> PERSONAL_HELBERT, HOUSEHOLD, PERSONAL_LEIDIANE, BUSINESS_AGENCY, TRAVEL_EXTRA, DEBT, REIMBURSEMENT, WORKING_CAPITAL</p>
-            <p><strong>institution:</strong> SICOOB, NUBANK, CAIXA, BRADESCO, MERCADO_PAGO, INFINITEPAY, COMPANY_ACCOUNT, CASH, OTHER</p>
-            <p><strong>direction:</strong> INCOME, EXPENSE</p>
-            <p><strong>status (receber):</strong> PENDING, PAID, PARTIAL, OVERDUE, CANCELED, RENEGOTIATED</p>
-            <p><strong>status (pagar):</strong> OPEN, PAID, OVERDUE, INSTALMENT, RENEGOTIATED, SUSPENDED</p>
-            <p><strong>type (pagar):</strong> FIXED, VARIABLE, RECURRING, EXTRAORDINARY, DEBT, INVESTMENT</p>
-          </div>
-        </article>
-      </div>
-
-      {message ? (
-        <AlertBanner type={message.type === "ok" ? "ok" : "danger"} message={message.text} />
-      ) : null}
-
-      {preview ? (
-        <article className="cc-card overflow-hidden">
-          <div className="border-b border-zinc-100 px-5 py-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-zinc-900">Pré-visualização</h3>
-              <p className="text-xs text-zinc-500">{preview.rows} linha(s) encontradas. Clique em &quot;Importar&quot; para gravar.</p>
-            </div>
-            <div className="flex gap-2 text-xs">
-              {Object.entries(preview.totals).map(([k, v]) => (
-                <span key={k} className="rounded-full bg-blue-100 px-2 py-0.5 text-blue-800">
-                  {kindLabels[k] ?? k}: {v}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  {Object.keys(preview.sample[0] ?? {}).map((col) => (
-                    <th key={col} className="cc-th">{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {preview.sample.map((row, i) => (
-                  <tr key={i} className="cc-tr">
-                    {Object.values(row).map((val, j) => (
-                      <td key={j} className="cc-td text-xs">{val}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
-      ) : null}
-
-      <article className="cc-card p-5 border-red-200">
-        <h3 className="text-sm font-bold text-red-700 mb-2">Zona de Perigo</h3>
-        <p className="text-xs text-zinc-600 mb-3">Apaga todos os dados do workspace. Esta ação não pode ser desfeita.</p>
-        <button type="button" onClick={doClear} disabled={loading} className="cc-btn-danger text-xs px-3 py-2">
-          Limpar toda a base de dados
-        </button>
-      </article>
-    </section>
-  );
-}
-
+/* ── COMING SOON ── */
 function ComingSoonModule({ module }: { module: AppModule }) {
   const descriptions: Record<string, string> = {
     dividas: "Cadastre empréstimos, financiamentos e parcelas. Simule renegociações e acompanhe o saldo devedor.",
@@ -528,10 +328,10 @@ export function ModulesView({ module }: { module: AppModule }) {
   if (module.key === "pagar") return <PayablesModule />;
   if (module.key === "fluxo") return <CashflowModule />;
   if (module.key === "dre") return <DreModule />;
-  if (module.key === "relatorios") return <ImportModule />;
+  if (module.key === "dividas") return <DebtModule />;
+  if (module.key === "documentos") return <DocumentModule />;
+  if (module.key === "importar") return <ImportModule />;
   if (module.key === "configuracoes") return <SettingsModule />;
-  if (module.key === "dividas") return <ComingSoonModule module={module} />;
-  if (module.key === "documentos") return <ComingSoonModule module={module} />;
   if (module.key === "projecoes") return <ComingSoonModule module={module} />;
   return <ComingSoonModule module={module} />;
 }

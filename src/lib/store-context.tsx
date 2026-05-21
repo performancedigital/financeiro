@@ -13,6 +13,8 @@ import type {
   AccountInput,
   ClientInput,
   ContractInput,
+  DebtInput,
+  DocumentInput,
   PayableInput,
   ReceivableInput,
   TransactionInput,
@@ -54,6 +56,11 @@ type AppStoreContextType = {
   deleteCostCenter: (id: string) => Promise<{ ok: boolean }>;
   createWorkspaceOption: (kind: string, value: string, label: string) => Promise<{ ok: boolean }>;
   deleteWorkspaceOption: (id: string) => Promise<{ ok: boolean }>;
+  createDebt: (payload: DebtInput) => Promise<{ ok: boolean }>;
+  deleteDebt: (id: string) => Promise<{ ok: boolean }>;
+  createDocument: (payload: DocumentInput) => Promise<{ ok: boolean }>;
+  deleteDocument: (id: string) => Promise<{ ok: boolean }>;
+  smartImport: (csv: string) => Promise<{ imported: number; skipped: number; errors: string[] }>;
 };
 
 const AppStoreContext = createContext<AppStoreContextType | null>(null);
@@ -130,6 +137,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       mutate("/api/workspace-options", { method: "POST", body: JSON.stringify({ kind, value, label }) }),
     deleteWorkspaceOption: (id) =>
       mutate(`/api/workspace-options/${id}`, { method: "DELETE" }),
+    createDebt: (p) => mutate("/api/debts", { method: "POST", body: JSON.stringify(p) }),
+    deleteDebt: (id) => mutate(`/api/debts/${id}`, { method: "DELETE" }),
+    createDocument: (p) => mutate("/api/documents", { method: "POST", body: JSON.stringify(p) }),
+    deleteDocument: (id) => mutate(`/api/documents/${id}`, { method: "DELETE" }),
+    smartImport: (csv) => mutate("/api/import/smart", { method: "POST", body: JSON.stringify({ csv }) }),
   }), [store, loading, error, refresh, mutate]);
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;

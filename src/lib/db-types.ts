@@ -91,6 +91,32 @@ export type WorkspaceOptionRow = {
   sortOrder: number;
 };
 
+export type DebtRow = {
+  id: string;
+  creditor: string;
+  type: string;
+  originalAmount: number;
+  outstandingAmount: number;
+  monthlyRate?: number;
+  dueDate?: string;
+  totalInstalments?: number;
+  paidInstalments: number;
+  status: string;
+  notes?: string;
+};
+
+export type DocumentRow = {
+  id: string;
+  name: string;
+  type: string;
+  url?: string;
+  clientId?: string;
+  amount?: number;
+  documentDate?: string;
+  notes?: string;
+  tags: string[];
+};
+
 export type DbSnapshot = {
   accounts: AccountRow[];
   transactions: TransactionRow[];
@@ -101,4 +127,6 @@ export type DbSnapshot = {
   categories: CategoryRow[];
   costCenters: CostCenterRow[];
   workspaceOptions: WorkspaceOptionRow[];
+  debts: DebtRow[];
+  documents: DocumentRow[];
 };

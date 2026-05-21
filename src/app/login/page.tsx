@@ -2,15 +2,29 @@ import { LoginForm } from "./login-form";
 
 export default function LoginPage() {
   return (
-    <main className="grid min-h-screen place-items-center bg-gradient-to-b from-zinc-100 to-zinc-200 p-4">
-      <section className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl">
-        <div className="mb-6 space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">CaixaComando</p>
-          <h1 className="text-2xl font-bold text-zinc-900">Acesse sua central financeira</h1>
-          <p className="text-sm text-zinc-600">MVP Etapas 1 e 2: base funcional com autenticação.</p>
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 p-4">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 mb-4">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <rect x="2" y="7" width="20" height="14" rx="2"/>
+              <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+              <line x1="12" y1="12" x2="12" y2="16"/>
+              <line x1="10" y1="14" x2="14" y2="14"/>
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2">CaixaComando</h1>
+          <p className="text-blue-200 text-sm">Controle financeiro da sua agência</p>
         </div>
-        <LoginForm />
-      </section>
+        <div className="bg-white rounded-2xl shadow-2xl p-8">
+          <h2 className="text-xl font-bold text-zinc-900 mb-1">Bem-vindo de volta</h2>
+          <p className="text-sm text-zinc-500 mb-6">Faça login para acessar o painel</p>
+          <LoginForm />
+          <p className="mt-6 text-xs text-center text-zinc-500">
+            Credenciais: admin@caixacomando.local / admin123
+          </p>
+        </div>
+      </div>
     </main>
   );
 }

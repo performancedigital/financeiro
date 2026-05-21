@@ -11,6 +11,8 @@ export async function POST() {
       contracts: [],
       receivables: [],
       payables: [],
+      categories: [],
+      costCenters: [],
     });
     return NextResponse.json({ ok: true });
   });

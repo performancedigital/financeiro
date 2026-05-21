@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import type {
   AccountRow,
+  CategoryRow,
   ClientRow,
   ContractRow,
+  CostCenterRow,
   DbSnapshot,
   PayableRow,
   ReceivableRow,
@@ -59,7 +61,7 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
   const workspaceId = getWorkspaceId(session);
   await ensureWorkspace(workspaceId);
 
-  const [accounts, clients, contracts, transactions, receivables, payables] = await Promise.all([
+  const [accounts, clients, contracts, transactions, receivables, payables, categories, costCenters] = await Promise.all([
     prisma.account.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.client.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.contract.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
@@ -74,6 +76,8 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
       include: { category: true, costCenter: true, provider: true },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.category.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.costCenter.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { name: "asc" } }),
   ]);
 
   const accountRows: AccountRow[] = accounts.map((a) => ({
@@ -142,6 +146,19 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
     notes: p.notes ?? undefined,
   }));
 
+  const categoryRows: CategoryRow[] = categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    isIncome: c.isIncome,
+    color: c.color ?? undefined,
+  }));
+
+  const costCenterRows: CostCenterRow[] = costCenters.map((c) => ({
+    id: c.id,
+    name: c.name,
+  }));
+
   return {
     accounts: accountRows,
     transactions: txRows,
@@ -149,6 +166,8 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
     contracts: contractRows,
     receivables: recRows,
     payables: payRows,
+    categories: categoryRows,
+    costCenters: costCenterRows,
   };
 };
 
@@ -335,6 +354,35 @@ export const markPayablePaid = async (session: SessionPayload, id: string) => {
     where: { id, workspaceId, deletedAt: null },
     data: { status: "PAID", paidAt: new Date() },
   });
+};
+
+export const createCategory = async (session: SessionPayload, name: string, isIncome: boolean) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
+  const slug = name.trim().toLowerCase().replaceAll(" ", "_").replace(/[^a-z0-9_]/g, "");
+  return prisma.category.upsert({
+    where: { workspaceId_slug: { workspaceId, slug } },
+    update: { deletedAt: null },
+    create: { workspaceId, name: name.trim(), slug, isIncome, color: isIncome ? "#16a34a" : "#dc2626" },
+  });
+};
+
+export const deleteCategory = async (session: SessionPayload, id: string) => {
+  const workspaceId = getWorkspaceId(session);
+  return prisma.category.updateMany({ where: { id, workspaceId }, data: { deletedAt: new Date() } });
+};
+
+export const createCostCenter = async (session: SessionPayload, name: string) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
+  const existing = await prisma.costCenter.findFirst({ where: { workspaceId, name: name.trim(), deletedAt: null } });
+  if (existing) return existing;
+  return prisma.costCenter.create({ data: { workspaceId, name: name.trim() } });
+};
+
+export const deleteCostCenter = async (session: SessionPayload, id: string) => {
+  const workspaceId = getWorkspaceId(session);
+  return prisma.costCenter.updateMany({ where: { id, workspaceId }, data: { deletedAt: new Date() } });
 };
 
 export const replaceSnapshot = async (session: SessionPayload, snapshot: DbSnapshot) => {

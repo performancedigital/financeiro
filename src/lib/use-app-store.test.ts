@@ -9,6 +9,8 @@ const snapshot: DbSnapshot = {
   contracts: [],
   receivables: [],
   payables: [],
+  categories: [],
+  costCenters: [],
   transactions: [
     {
       id: "1",

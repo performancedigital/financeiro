@@ -1,6 +1,6 @@
-import { LoginForm } from "./login-form";
+import { RegisterForm } from "./register-form";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 p-4">
       <div className="w-full max-w-md">
@@ -14,15 +14,15 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">CaixaComando</h1>
-          <p className="text-blue-200 text-sm">Controle financeiro da sua agência</p>
+          <p className="text-blue-200 text-sm">Crie sua conta e comece a controlar suas finanças</p>
         </div>
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-xl font-bold text-zinc-900 mb-1">Bem-vindo de volta</h2>
-          <p className="text-sm text-zinc-500 mb-6">Faça login para acessar o painel</p>
-          <LoginForm />
+          <h2 className="text-xl font-bold text-zinc-900 mb-1">Criar conta</h2>
+          <p className="text-sm text-zinc-500 mb-6">Cada conta tem seu painel separado e isolado</p>
+          <RegisterForm />
           <p className="mt-4 text-sm text-center text-zinc-500">
-            Não tem conta?{" "}
-            <a href="/register" className="text-blue-600 hover:underline font-medium">Criar agora</a>
+            Já tem conta?{" "}
+            <a href="/login" className="text-blue-600 hover:underline font-medium">Fazer login</a>
           </p>
         </div>
       </div>

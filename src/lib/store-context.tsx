@@ -48,6 +48,10 @@ type AppStoreContextType = {
     ok: boolean; mode: "commit"; importedRows: number;
   }>;
   clearAllData: () => Promise<{ ok: boolean }>;
+  createCategory: (name: string, isIncome: boolean) => Promise<{ ok: boolean }>;
+  deleteCategory: (id: string) => Promise<{ ok: boolean }>;
+  createCostCenter: (name: string) => Promise<{ ok: boolean }>;
+  deleteCostCenter: (id: string) => Promise<{ ok: boolean }>;
 };
 
 const AppStoreContext = createContext<AppStoreContextType | null>(null);
@@ -116,6 +120,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     importCsvPreview: (p) => mutate("/api/import/csv", { method: "POST", body: JSON.stringify({ ...p, mode: "preview" }) }),
     importCsvCommit: (p) => mutate("/api/import/csv", { method: "POST", body: JSON.stringify({ ...p, mode: "commit" }) }),
     clearAllData: () => mutate("/api/import/clear", { method: "POST" }),
+    createCategory: (name, isIncome) => mutate("/api/categories", { method: "POST", body: JSON.stringify({ name, isIncome }) }),
+    deleteCategory: (id) => mutate(`/api/categories/${id}`, { method: "DELETE" }),
+    createCostCenter: (name) => mutate("/api/cost-centers", { method: "POST", body: JSON.stringify({ name }) }),
+    deleteCostCenter: (id) => mutate(`/api/cost-centers/${id}`, { method: "DELETE" }),
   }), [store, loading, error, refresh, mutate]);
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;

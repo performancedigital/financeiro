@@ -1,17 +1,13 @@
+import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 
 const SESSION_COOKIE = "cc_session";
-const DEFAULT_EMAIL = "admin@caixacomando.local";
-const DEFAULT_PASSWORD = "admin123";
-const DEFAULT_NAME = "Helbert";
-const DEFAULT_WORKSPACE = "ws_caixacomando";
 
-const getSecret = () => {
-  const raw = process.env.NEXTAUTH_SECRET ?? "change-me";
-  return new TextEncoder().encode(raw);
-};
+const getSecret = () =>
+  new TextEncoder().encode(process.env.NEXTAUTH_SECRET ?? "change-me-in-production");
 
 export type SessionPayload = {
   sub: string;
@@ -20,26 +16,69 @@ export type SessionPayload = {
   workspaceId: string;
 };
 
-export const validateCredentials = (email: string, password: string) => {
-  return email === DEFAULT_EMAIL && password === DEFAULT_PASSWORD;
+export const hashPassword = (password: string) => bcrypt.hash(password, 12);
+
+export const verifyPassword = (password: string, hash: string) =>
+  bcrypt.compare(password, hash);
+
+export const validateCredentials = async (
+  email: string,
+  password: string,
+): Promise<SessionPayload | null> => {
+  const user = await prisma.user.findFirst({
+    where: { email: email.toLowerCase().trim(), deletedAt: null },
+  });
+  if (!user) return null;
+  const valid = await verifyPassword(password, user.passwordHash);
+  if (!valid) return null;
+  return {
+    sub: user.id,
+    email: user.email,
+    name: user.name,
+    workspaceId: user.workspaceId,
+  };
 };
 
-export const createSessionToken = async () => {
-  const payload: SessionPayload = {
-    sub: "usr_admin",
-    email: DEFAULT_EMAIL,
-    name: DEFAULT_NAME,
-    workspaceId: DEFAULT_WORKSPACE,
-  };
-  return new SignJWT(payload)
+export const createUser = async (params: {
+  name: string;
+  email: string;
+  password: string;
+  workspaceName: string;
+}) => {
+  const existing = await prisma.user.findFirst({
+    where: { email: params.email.toLowerCase().trim() },
+  });
+  if (existing) throw new Error("E-mail já cadastrado.");
+
+  const workspaceId = `ws_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const passwordHash = await hashPassword(params.password);
+
+  await prisma.workspace.create({
+    data: { id: workspaceId, name: params.workspaceName },
+  });
+
+  const user = await prisma.user.create({
+    data: {
+      workspaceId,
+      name: params.name.trim(),
+      email: params.email.toLowerCase().trim(),
+      passwordHash,
+      role: "OWNER",
+    },
+  });
+
+  return user;
+};
+
+export const createSessionToken = async (payload: SessionPayload) =>
+  new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("12h")
     .sign(getSecret());
-};
 
-export const setSessionCookie = async () => {
-  const token = await createSessionToken();
+export const setSessionCookie = async (payload: SessionPayload) => {
+  const token = await createSessionToken(payload);
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -81,8 +120,6 @@ export const requireSession = async () => {
 
 export const requireApiSession = async (): Promise<SessionPayload> => {
   const session = await getSession();
-  if (!session) {
-    throw new Error("UNAUTHORIZED");
-  }
+  if (!session) throw new Error("UNAUTHORIZED");
   return session;
 };

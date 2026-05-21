@@ -1,29 +1,32 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { loginSchema } from "@/lib/validators";
-import { setSessionCookie, validateCredentials } from "@/lib/auth";
+import { z } from "zod";
+import { validateCredentials, setSessionCookie } from "@/lib/auth";
 
-type LoginActionState = {
-  error?: string;
-};
+const loginSchema = z.object({
+  email: z.string().email("E-mail inválido."),
+  password: z.string().min(6, "Senha deve ter ao menos 6 caracteres."),
+});
 
-export async function loginAction(
-  _prevState: LoginActionState,
-  formData: FormData,
-): Promise<LoginActionState> {
+type State = { error?: string };
+
+export async function loginAction(_prev: State, formData: FormData): Promise<State> {
   const parsed = loginSchema.safeParse({
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
   });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
 
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Dados invalidos." };
-  }
+  const session = await validateCredentials(parsed.data.email, parsed.data.password);
+  if (!session) return { error: "E-mail ou senha incorretos." };
 
-  const valid = validateCredentials(parsed.data.email, parsed.data.password);
-  if (!valid) return { error: "Credenciais invalidas." };
-
-  await setSessionCookie();
+  await setSessionCookie(session);
   redirect("/dashboard");
+}
+
+export async function logoutAction() {
+  const { clearSessionCookie } = await import("@/lib/auth");
+  await clearSessionCookie();
+  redirect("/login");
 }

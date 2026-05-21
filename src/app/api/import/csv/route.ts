@@ -30,6 +30,8 @@ const buildSnapshotFromCsv = (
     contracts: [...base.contracts],
     receivables: [...base.receivables],
     payables: [...base.payables],
+    categories: [...(base.categories ?? [])],
+    costCenters: [...(base.costCenters ?? [])],
   };
 
   switch (kind) {
@@ -136,7 +138,7 @@ export async function POST(request: Request) {
 
     const rows = parseCsv(body.csv);
     const base = body.replaceAll
-      ? { accounts: [], transactions: [], clients: [], contracts: [], receivables: [], payables: [] }
+      ? { accounts: [], transactions: [], clients: [], contracts: [], receivables: [], payables: [], categories: [], costCenters: [] }
       : await getSnapshot(session);
     const snapshot = buildSnapshotFromCsv(body.kind, rows, base);
 

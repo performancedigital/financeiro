@@ -302,10 +302,28 @@ export function AccountsModule() {
             </FormRow>
             <FormRow>
               <Field label="Categoria *">
-                <input name="category" required placeholder="Ex: Receita de cliente" className="cc-input" />
+                {store?.categories.length ? (
+                  <select name="category" required className="cc-select">
+                    <option value="">-- Selecionar --</option>
+                    {store.categories.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input name="category" required placeholder="Ex: Receita de cliente (vai criar automaticamente)" className="cc-input" />
+                )}
               </Field>
               <Field label="Centro de Custo *">
-                <input name="costCenter" required placeholder="Ex: Agencia" className="cc-input" />
+                {store?.costCenters.length ? (
+                  <select name="costCenter" required className="cc-select">
+                    <option value="">-- Selecionar --</option>
+                    {store.costCenters.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input name="costCenter" required placeholder="Ex: Agencia (vai criar automaticamente)" className="cc-input" />
+                )}
               </Field>
             </FormRow>
             <Field label="Cliente (opcional)">
@@ -847,12 +865,30 @@ export function PayablesModule() {
                 <input name="provider" placeholder="Ex: Google" className="cc-input" />
               </Field>
               <Field label="Categoria *">
-                <input name="category" required placeholder="Ex: Ferramentas" className="cc-input" />
+                {store?.categories.length ? (
+                  <select name="category" required className="cc-select">
+                    <option value="">-- Selecionar --</option>
+                    {store.categories.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input name="category" required placeholder="Ex: Ferramentas" className="cc-input" />
+                )}
               </Field>
             </FormRow>
             <FormRow>
               <Field label="Centro de Custo *">
-                <input name="costCenter" required placeholder="Ex: Agencia" className="cc-input" />
+                {store?.costCenters.length ? (
+                  <select name="costCenter" required className="cc-select">
+                    <option value="">-- Selecionar --</option>
+                    {store.costCenters.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input name="costCenter" required placeholder="Ex: Agencia" className="cc-input" />
+                )}
               </Field>
               <Field label="Valor (R$) *">
                 <input name="amount" type="number" step="0.01" min="0.01" required placeholder="0,00" className="cc-input" />

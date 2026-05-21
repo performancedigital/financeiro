@@ -9,6 +9,7 @@ import {
   PayablesModule,
   ReceivablesModule,
 } from "@/components/modules/operations-modules";
+import { SettingsModule } from "@/components/modules/settings-module";
 import { monthlyCashflow, simplifiedDre } from "@/lib/finance-math";
 
 const money = (v: number) =>
@@ -528,6 +529,7 @@ export function ModulesView({ module }: { module: AppModule }) {
   if (module.key === "fluxo") return <CashflowModule />;
   if (module.key === "dre") return <DreModule />;
   if (module.key === "relatorios") return <ImportModule />;
+  if (module.key === "configuracoes") return <SettingsModule />;
   if (module.key === "dividas") return <ComingSoonModule module={module} />;
   if (module.key === "documentos") return <ComingSoonModule module={module} />;
   if (module.key === "projecoes") return <ComingSoonModule module={module} />;

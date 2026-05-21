@@ -91,6 +91,19 @@ export type PayableRow = {
   notes?: string;
 };
 
+export type CategoryRow = {
+  id: string;
+  name: string;
+  slug: string;
+  isIncome: boolean;
+  color?: string;
+};
+
+export type CostCenterRow = {
+  id: string;
+  name: string;
+};
+
 export type DbSnapshot = {
   accounts: AccountRow[];
   transactions: TransactionRow[];
@@ -98,4 +111,6 @@ export type DbSnapshot = {
   contracts: ContractRow[];
   receivables: ReceivableRow[];
   payables: PayableRow[];
+  categories: CategoryRow[];
+  costCenters: CostCenterRow[];
 };

@@ -84,6 +84,7 @@ model Workspace {
   name        String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+  users       User[]
   accounts    Account[]
   categories  Category[]
   costCenters CostCenter[]
@@ -93,6 +94,19 @@ model Workspace {
   receivables Receivable[]
   payables    Payable[]
   providers   Provider[]
+}
+
+model User {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id])
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         String    @default("OWNER")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 }
 
 model Account {

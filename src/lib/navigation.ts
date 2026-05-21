@@ -9,7 +9,8 @@ export type AppModuleKey =
   | "dividas"
   | "documentos"
   | "projecoes"
-  | "relatorios";
+  | "relatorios"
+  | "configuracoes";
 
 export type AppModule = {
   key: AppModuleKey;
@@ -29,6 +30,7 @@ export const appModules: AppModule[] = [
   { key: "documentos", label: "Documentos", description: "Contratos e comprovantes" },
   { key: "projecoes", label: "Projecoes", description: "Visao ate dezembro" },
   { key: "relatorios", label: "Relatorios", description: "PDF e Excel executivos" },
+  { key: "configuracoes", label: "Configurações", description: "Categorias, centros de custo e preferências" },
 ];
 
 export const findModule = (key: string) => appModules.find((item) => item.key === key);

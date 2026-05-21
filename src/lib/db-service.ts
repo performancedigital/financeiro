@@ -9,6 +9,7 @@ import type {
   PayableRow,
   ReceivableRow,
   TransactionRow,
+  WorkspaceOptionRow,
 } from "@/lib/db-types";
 import type { SessionPayload } from "@/lib/auth";
 import type {
@@ -61,7 +62,7 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
   const workspaceId = getWorkspaceId(session);
   await ensureWorkspace(workspaceId);
 
-  const [accounts, clients, contracts, transactions, receivables, payables, categories, costCenters] = await Promise.all([
+  const [accounts, clients, contracts, transactions, receivables, payables, categories, costCenters, workspaceOptions] = await Promise.all([
     prisma.account.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.client.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.contract.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { createdAt: "desc" } }),
@@ -78,6 +79,10 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
     }),
     prisma.category.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { name: "asc" } }),
     prisma.costCenter.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.workspaceOption.findMany({
+      where: { workspaceId, deletedAt: null },
+      orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { label: "asc" }],
+    }),
   ]);
 
   const accountRows: AccountRow[] = accounts.map((a) => ({
@@ -159,6 +164,14 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
     name: c.name,
   }));
 
+  const workspaceOptionRows: WorkspaceOptionRow[] = workspaceOptions.map((o) => ({
+    id: o.id,
+    kind: o.kind,
+    value: o.value,
+    label: o.label,
+    sortOrder: o.sortOrder,
+  }));
+
   return {
     accounts: accountRows,
     transactions: txRows,
@@ -168,6 +181,7 @@ export const getSnapshot = async (session: SessionPayload): Promise<DbSnapshot> 
     payables: payRows,
     categories: categoryRows,
     costCenters: costCenterRows,
+    workspaceOptions: workspaceOptionRows,
   };
 };
 
@@ -383,6 +397,67 @@ export const createCostCenter = async (session: SessionPayload, name: string) =>
 export const deleteCostCenter = async (session: SessionPayload, id: string) => {
   const workspaceId = getWorkspaceId(session);
   return prisma.costCenter.updateMany({ where: { id, workspaceId }, data: { deletedAt: new Date() } });
+};
+
+// Defaults para seeding de novo workspace
+const DEFAULT_ACCOUNT_TYPES = [
+  { value: "PERSONAL_HELBERT", label: "Pessoal Helbert" },
+  { value: "HOUSEHOLD", label: "Casa / Família" },
+  { value: "PERSONAL_LEIDIANE", label: "Leidiane" },
+  { value: "BUSINESS_AGENCY", label: "Empresa / Agência" },
+  { value: "TRAVEL_EXTRA", label: "Viagem / Extraordinário" },
+  { value: "DEBT", label: "Dívida" },
+  { value: "REIMBURSEMENT", label: "Reembolso" },
+  { value: "WORKING_CAPITAL", label: "Capital de Giro" },
+];
+
+const DEFAULT_INSTITUTIONS = [
+  { value: "SICOOB", label: "Sicoob" },
+  { value: "NUBANK", label: "Nubank" },
+  { value: "CAIXA", label: "Caixa Econômica" },
+  { value: "BRADESCO", label: "Bradesco" },
+  { value: "MERCADO_PAGO", label: "Mercado Pago" },
+  { value: "INFINITEPAY", label: "InfinitePay" },
+  { value: "COMPANY_ACCOUNT", label: "Conta Empresa" },
+  { value: "CASH", label: "Dinheiro / Caixa" },
+  { value: "OTHER", label: "Outro" },
+];
+
+export const seedWorkspaceOptions = async (workspaceId: string) => {
+  const opts = [
+    ...DEFAULT_ACCOUNT_TYPES.map((o, i) => ({ ...o, kind: "ACCOUNT_TYPE", sortOrder: i })),
+    ...DEFAULT_INSTITUTIONS.map((o, i) => ({ ...o, kind: "INSTITUTION", sortOrder: i })),
+  ];
+  for (const opt of opts) {
+    await prisma.workspaceOption.upsert({
+      where: { workspaceId_kind_value: { workspaceId, kind: opt.kind, value: opt.value } },
+      update: {},
+      create: { workspaceId, kind: opt.kind, value: opt.value, label: opt.label, sortOrder: opt.sortOrder },
+    });
+  }
+};
+
+export const createWorkspaceOption = async (
+  session: SessionPayload,
+  kind: string,
+  value: string,
+  label: string,
+) => {
+  const workspaceId = getWorkspaceId(session);
+  await ensureWorkspace(workspaceId);
+  return prisma.workspaceOption.upsert({
+    where: { workspaceId_kind_value: { workspaceId, kind, value } },
+    update: { label, deletedAt: null },
+    create: { workspaceId, kind, value, label },
+  });
+};
+
+export const deleteWorkspaceOption = async (session: SessionPayload, id: string) => {
+  const workspaceId = getWorkspaceId(session);
+  return prisma.workspaceOption.updateMany({
+    where: { id, workspaceId },
+    data: { deletedAt: new Date() },
+  });
 };
 
 export const replaceSnapshot = async (session: SessionPayload, snapshot: DbSnapshot) => {

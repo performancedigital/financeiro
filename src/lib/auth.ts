@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { seedWorkspaceOptions } from "@/lib/db-service";
 
 const SESSION_COOKIE = "cc_session";
 
@@ -66,6 +67,8 @@ export const createUser = async (params: {
       role: "OWNER",
     },
   });
+
+  await seedWorkspaceOptions(workspaceId);
 
   return user;
 };

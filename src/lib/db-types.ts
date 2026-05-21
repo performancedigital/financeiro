@@ -1,24 +1,3 @@
-export type AccountType =
-  | "PERSONAL_HELBERT"
-  | "HOUSEHOLD"
-  | "PERSONAL_LEIDIANE"
-  | "BUSINESS_AGENCY"
-  | "TRAVEL_EXTRA"
-  | "DEBT"
-  | "REIMBURSEMENT"
-  | "WORKING_CAPITAL";
-
-export type FinancialInstitution =
-  | "SICOOB"
-  | "NUBANK"
-  | "CAIXA"
-  | "BRADESCO"
-  | "MERCADO_PAGO"
-  | "INFINITEPAY"
-  | "COMPANY_ACCOUNT"
-  | "CASH"
-  | "OTHER";
-
 export type TransactionDirection = "INCOME" | "EXPENSE";
 export type ClientStatus = "ACTIVE" | "STANDBY" | "DELINQUENT" | "CANCELED" | "PROSPECT";
 export type ReceivableStatus = "PENDING" | "PAID" | "PARTIAL" | "OVERDUE" | "CANCELED" | "RENEGOTIATED";
@@ -28,8 +7,8 @@ export type PayableType = "FIXED" | "VARIABLE" | "RECURRING" | "EXTRAORDINARY" |
 export type AccountRow = {
   id: string;
   name: string;
-  type: AccountType;
-  institution: FinancialInstitution;
+  type: string;        // era AccountType
+  institution: string; // era FinancialInstitution
   balance: number;
 };
 
@@ -104,6 +83,14 @@ export type CostCenterRow = {
   name: string;
 };
 
+export type WorkspaceOptionRow = {
+  id: string;
+  kind: string;
+  value: string;
+  label: string;
+  sortOrder: number;
+};
+
 export type DbSnapshot = {
   accounts: AccountRow[];
   transactions: TransactionRow[];
@@ -113,4 +100,5 @@ export type DbSnapshot = {
   payables: PayableRow[];
   categories: CategoryRow[];
   costCenters: CostCenterRow[];
+  workspaceOptions: WorkspaceOptionRow[];
 };

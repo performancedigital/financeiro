@@ -11,6 +11,7 @@ const snapshot: DbSnapshot = {
   payables: [],
   categories: [],
   costCenters: [],
+  workspaceOptions: [],
   transactions: [
     {
       id: "1",

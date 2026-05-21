@@ -13,6 +13,7 @@ export async function POST() {
       payables: [],
       categories: [],
       costCenters: [],
+      workspaceOptions: [],
     });
     return NextResponse.json({ ok: true });
   });

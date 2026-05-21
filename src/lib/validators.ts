@@ -9,27 +9,8 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 export const accountSchema = z.object({
   name: z.string().min(2, "Nome da conta obrigatorio."),
-  type: z.enum([
-    "PERSONAL_HELBERT",
-    "HOUSEHOLD",
-    "PERSONAL_LEIDIANE",
-    "BUSINESS_AGENCY",
-    "TRAVEL_EXTRA",
-    "DEBT",
-    "REIMBURSEMENT",
-    "WORKING_CAPITAL",
-  ]),
-  institution: z.enum([
-    "SICOOB",
-    "NUBANK",
-    "CAIXA",
-    "BRADESCO",
-    "MERCADO_PAGO",
-    "INFINITEPAY",
-    "COMPANY_ACCOUNT",
-    "CASH",
-    "OTHER",
-  ]),
+  type: z.string().min(1, "Tipo de caixa obrigatorio."),
+  institution: z.string().min(1, "Instituição obrigatoria."),
   balance: z.coerce.number().finite(),
 });
 

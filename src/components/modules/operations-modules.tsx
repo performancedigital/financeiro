@@ -234,28 +234,23 @@ export function AccountsModule() {
             </Field>
             <FormRow>
               <Field label="Tipo de Caixa *">
-                <select name="type" defaultValue="BUSINESS_AGENCY" className="cc-select">
-                  <option value="PERSONAL_HELBERT">Pessoal Helbert</option>
-                  <option value="HOUSEHOLD">Casa / Família</option>
-                  <option value="PERSONAL_LEIDIANE">Leidiane</option>
-                  <option value="BUSINESS_AGENCY">Empresa / Agência</option>
-                  <option value="TRAVEL_EXTRA">Viagem / Extra</option>
-                  <option value="DEBT">Dívida</option>
-                  <option value="REIMBURSEMENT">Reembolso</option>
-                  <option value="WORKING_CAPITAL">Capital de Giro</option>
+                <select name="type" required className="cc-select">
+                  <option value="">-- Selecionar tipo --</option>
+                  {(store?.workspaceOptions ?? [])
+                    .filter((o) => o.kind === "ACCOUNT_TYPE")
+                    .map((o) => (
+                      <option key={o.id} value={o.value}>{o.label}</option>
+                    ))}
                 </select>
               </Field>
               <Field label="Banco / Instituição *">
-                <select name="institution" defaultValue="OTHER" className="cc-select">
-                  <option value="SICOOB">Sicoob</option>
-                  <option value="NUBANK">Nubank</option>
-                  <option value="CAIXA">Caixa Econômica</option>
-                  <option value="BRADESCO">Bradesco</option>
-                  <option value="MERCADO_PAGO">Mercado Pago</option>
-                  <option value="INFINITEPAY">InfinitePay</option>
-                  <option value="COMPANY_ACCOUNT">Conta Empresa</option>
-                  <option value="CASH">Dinheiro em Espécie</option>
-                  <option value="OTHER">Outro</option>
+                <select name="institution" required className="cc-select">
+                  <option value="">-- Selecionar banco --</option>
+                  {(store?.workspaceOptions ?? [])
+                    .filter((o) => o.kind === "INSTITUTION")
+                    .map((o) => (
+                      <option key={o.id} value={o.value}>{o.label}</option>
+                    ))}
                 </select>
               </Field>
             </FormRow>

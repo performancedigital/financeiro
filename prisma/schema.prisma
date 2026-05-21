@@ -8,29 +8,6 @@ datasource db {
   directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
-enum AccountType {
-  PERSONAL_HELBERT
-  HOUSEHOLD
-  PERSONAL_LEIDIANE
-  BUSINESS_AGENCY
-  TRAVEL_EXTRA
-  DEBT
-  REIMBURSEMENT
-  WORKING_CAPITAL
-}
-
-enum FinancialInstitution {
-  SICOOB
-  NUBANK
-  CAIXA
-  BRADESCO
-  MERCADO_PAGO
-  INFINITEPAY
-  COMPANY_ACCOUNT
-  CASH
-  OTHER
-}
-
 enum TransactionDirection {
   INCOME
   EXPENSE
@@ -80,20 +57,37 @@ enum RecurrenceType {
 }
 
 model Workspace {
-  id          String        @id
-  name        String
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  users       User[]
-  accounts    Account[]
-  categories  Category[]
-  costCenters CostCenter[]
-  clients     Client[]
-  contracts   Contract[]
-  transactions Transaction[]
-  receivables Receivable[]
-  payables    Payable[]
-  providers   Provider[]
+  id               String            @id
+  name             String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  users            User[]
+  accounts         Account[]
+  categories       Category[]
+  costCenters      CostCenter[]
+  clients          Client[]
+  contracts        Contract[]
+  transactions     Transaction[]
+  receivables      Receivable[]
+  payables         Payable[]
+  providers        Provider[]
+  workspaceOptions WorkspaceOption[]
+}
+
+model WorkspaceOption {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  kind        String
+  value       String
+  label       String
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([workspaceId, kind, value])
+  @@index([workspaceId, kind])
 }
 
 model User {
@@ -110,16 +104,16 @@ model User {
 }
 
 model Account {
-  id          String               @id @default(cuid())
+  id          String     @id @default(cuid())
   workspaceId String
-  workspace   Workspace            @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id])
   name        String
-  type        AccountType
-  institution FinancialInstitution
-  balance     Decimal              @default(0)
-  isActive    Boolean              @default(true)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  type        String
+  institution String
+  balance     Decimal    @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   deletedAt   DateTime?
   transactions Transaction[]
   receivables Receivable[]
@@ -199,8 +193,8 @@ model Transaction {
   direction     TransactionDirection
   description   String
   amount        Decimal
-  accountType   AccountType
-  institution   FinancialInstitution
+  accountType   String
+  institution   String
   accountId     String?
   account       Account?             @relation(fields: [accountId], references: [id])
   categoryId    String?

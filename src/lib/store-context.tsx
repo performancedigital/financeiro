@@ -52,6 +52,8 @@ type AppStoreContextType = {
   deleteCategory: (id: string) => Promise<{ ok: boolean }>;
   createCostCenter: (name: string) => Promise<{ ok: boolean }>;
   deleteCostCenter: (id: string) => Promise<{ ok: boolean }>;
+  createWorkspaceOption: (kind: string, value: string, label: string) => Promise<{ ok: boolean }>;
+  deleteWorkspaceOption: (id: string) => Promise<{ ok: boolean }>;
 };
 
 const AppStoreContext = createContext<AppStoreContextType | null>(null);
@@ -124,6 +126,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     deleteCategory: (id) => mutate(`/api/categories/${id}`, { method: "DELETE" }),
     createCostCenter: (name) => mutate("/api/cost-centers", { method: "POST", body: JSON.stringify({ name }) }),
     deleteCostCenter: (id) => mutate(`/api/cost-centers/${id}`, { method: "DELETE" }),
+    createWorkspaceOption: (kind, value, label) =>
+      mutate("/api/workspace-options", { method: "POST", body: JSON.stringify({ kind, value, label }) }),
+    deleteWorkspaceOption: (id) =>
+      mutate(`/api/workspace-options/${id}`, { method: "DELETE" }),
   }), [store, loading, error, refresh, mutate]);
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;

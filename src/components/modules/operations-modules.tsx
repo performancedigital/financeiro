@@ -70,8 +70,6 @@ export function AccountsModule() {
   const [formError, setFormError] = useState<string | null>(null);
   const [tab, setTab] = useState<"accounts" | "transactions">("accounts");
 
-  if (!store) return <div className="flex justify-center py-12 text-zinc-500 text-sm">{loading ? "Carregando..." : "Sem dados."}</div>;
-
   const handleAccount = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -107,9 +105,9 @@ export function AccountsModule() {
     setShowTxModal(false);
   };
 
-  const totalBalance = store.accounts.reduce((a, x) => a + x.balance, 0);
-  const income = store.transactions.filter((t) => t.direction === "INCOME").reduce((a, t) => a + t.amount, 0);
-  const expense = store.transactions.filter((t) => t.direction === "EXPENSE").reduce((a, t) => a + t.amount, 0);
+  const totalBalance = store?.accounts.reduce((a, x) => a + x.balance, 0) ?? 0;
+  const income = store?.transactions.filter((t) => t.direction === "INCOME").reduce((a, t) => a + t.amount, 0) ?? 0;
+  const expense = store?.transactions.filter((t) => t.direction === "EXPENSE").reduce((a, t) => a + t.amount, 0) ?? 0;
 
   return (
     <section className="space-y-5">
@@ -139,81 +137,89 @@ export function AccountsModule() {
 
       <div className="flex gap-1 border-b border-zinc-200">
         <button type="button" onClick={() => setTab("accounts")} className={`px-4 py-2 text-sm font-medium transition ${tab === "accounts" ? "border-b-2 border-blue-600 text-blue-600" : "text-zinc-500 hover:text-zinc-900"}`}>
-          Contas ({store.accounts.length})
+          Contas ({store?.accounts.length ?? 0})
         </button>
         <button type="button" onClick={() => setTab("transactions")} className={`px-4 py-2 text-sm font-medium transition ${tab === "transactions" ? "border-b-2 border-blue-600 text-blue-600" : "text-zinc-500 hover:text-zinc-900"}`}>
-          Transações ({store.transactions.length})
+          Transações ({store?.transactions.length ?? 0})
         </button>
       </div>
 
-      {tab === "accounts" && (
+      {!store ? (
+        <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-white py-16">
+          <p className="text-sm text-zinc-500">{loading ? "Carregando dados..." : "Nenhum dado encontrado. Adicione sua primeira conta acima."}</p>
+        </div>
+      ) : (
         <>
-          {store.accounts.length === 0 ? <EmptyState message="Nenhuma conta cadastrada." /> : (
-            <article className="cc-card overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="cc-th">Conta</th>
-                    <th className="cc-th">Tipo de Caixa</th>
-                    <th className="cc-th">Instituição</th>
-                    <th className="cc-th text-right">Saldo Inicial</th>
-                    <th className="cc-th"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {store.accounts.map((a) => (
-                    <tr key={a.id} className="cc-tr">
-                      <td className="cc-td font-semibold text-zinc-900">{a.name}</td>
-                      <td className="cc-td"><Badge label={a.type.replaceAll("_", " ")} variant="blue" /></td>
-                      <td className="cc-td text-zinc-500">{a.institution}</td>
-                      <td className="cc-td text-right font-semibold">{money(a.balance)}</td>
-                      <td className="cc-td">
-                        <button type="button" onClick={() => void deleteAccount(a.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </article>
+          {tab === "accounts" && (
+            <>
+              {store.accounts.length === 0 ? <EmptyState message="Nenhuma conta cadastrada." /> : (
+                <article className="cc-card overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="cc-th">Conta</th>
+                        <th className="cc-th">Tipo de Caixa</th>
+                        <th className="cc-th">Instituição</th>
+                        <th className="cc-th text-right">Saldo Inicial</th>
+                        <th className="cc-th"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {store.accounts.map((a) => (
+                        <tr key={a.id} className="cc-tr">
+                          <td className="cc-td font-semibold text-zinc-900">{a.name}</td>
+                          <td className="cc-td"><Badge label={a.type.replaceAll("_", " ")} variant="blue" /></td>
+                          <td className="cc-td text-zinc-500">{a.institution}</td>
+                          <td className="cc-td text-right font-semibold">{money(a.balance)}</td>
+                          <td className="cc-td">
+                            <button type="button" onClick={() => void deleteAccount(a.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </article>
+              )}
+            </>
           )}
-        </>
-      )}
 
-      {tab === "transactions" && (
-        <>
-          {store.transactions.length === 0 ? <EmptyState message="Nenhuma transação lançada." /> : (
-            <article className="cc-card overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="cc-th">Data</th>
-                    <th className="cc-th">Tipo</th>
-                    <th className="cc-th">Descrição</th>
-                    <th className="cc-th">Categoria</th>
-                    <th className="cc-th text-right">Valor</th>
-                    <th className="cc-th"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {store.transactions.map((t) => (
-                    <tr key={t.id} className="cc-tr">
-                      <td className="cc-td text-zinc-500">{t.date}</td>
-                      <td className="cc-td">
-                        <Badge label={t.direction === "INCOME" ? "Entrada" : "Saída"} variant={t.direction === "INCOME" ? "green" : "red"} />
-                      </td>
-                      <td className="cc-td font-medium">{t.description}</td>
-                      <td className="cc-td text-zinc-500">{t.category}</td>
-                      <td className={`cc-td text-right font-semibold ${t.direction === "INCOME" ? "text-emerald-700" : "text-red-700"}`}>
-                        {t.direction === "EXPENSE" ? "-" : ""}{money(t.amount)}
-                      </td>
-                      <td className="cc-td">
-                        <button type="button" onClick={() => void deleteTransaction(t.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </article>
+          {tab === "transactions" && (
+            <>
+              {store.transactions.length === 0 ? <EmptyState message="Nenhuma transação lançada." /> : (
+                <article className="cc-card overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="cc-th">Data</th>
+                        <th className="cc-th">Tipo</th>
+                        <th className="cc-th">Descrição</th>
+                        <th className="cc-th">Categoria</th>
+                        <th className="cc-th text-right">Valor</th>
+                        <th className="cc-th"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {store.transactions.map((t) => (
+                        <tr key={t.id} className="cc-tr">
+                          <td className="cc-td text-zinc-500">{t.date}</td>
+                          <td className="cc-td">
+                            <Badge label={t.direction === "INCOME" ? "Entrada" : "Saída"} variant={t.direction === "INCOME" ? "green" : "red"} />
+                          </td>
+                          <td className="cc-td font-medium">{t.description}</td>
+                          <td className="cc-td text-zinc-500">{t.category}</td>
+                          <td className={`cc-td text-right font-semibold ${t.direction === "INCOME" ? "text-emerald-700" : "text-red-700"}`}>
+                            {t.direction === "EXPENSE" ? "-" : ""}{money(t.amount)}
+                          </td>
+                          <td className="cc-td">
+                            <button type="button" onClick={() => void deleteTransaction(t.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </article>
+              )}
+            </>
           )}
         </>
       )}
@@ -290,7 +296,7 @@ export function AccountsModule() {
               <Field label="Conta *">
                 <select name="accountId" required className="cc-select">
                   <option value="">-- Selecionar conta --</option>
-                  {store.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {store?.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </Field>
             </FormRow>
@@ -305,7 +311,7 @@ export function AccountsModule() {
             <Field label="Cliente (opcional)">
               <select name="clientId" className="cc-select">
                 <option value="">-- Nenhum --</option>
-                {store.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {store?.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Field>
             <div className="flex gap-3 pt-2">
@@ -342,7 +348,14 @@ export function ClientsModule() {
     return { clientRows, mrr, arr, ltvAvg };
   }, [store]);
 
-  if (!store) return <div className="flex justify-center py-12 text-zinc-500 text-sm">{loading ? "Carregando..." : "Sem dados."}</div>;
+  if (!store) return (
+    <section className="space-y-5">
+      <PageHeader title="Clientes & Contratos" subtitle="Carteira de clientes, LTV e contratos ativos" onAdd={() => { setFormError(null); tab === "clients" ? setShowClientModal(true) : setShowContractModal(true); }} addLabel={tab === "clients" ? "Novo Cliente" : "Novo Contrato"} />
+      <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-white py-16">
+        <p className="text-sm text-zinc-500">{loading ? "Carregando dados..." : "Erro ao carregar. Verifique a conexão com o banco."}</p>
+      </div>
+    </section>
+  );
 
   const handleClient = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -559,7 +572,14 @@ export function ReceivablesModule() {
   const [nowTs] = useState<number>(() => Date.now());
   const [todayStr] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
-  if (!store) return <div className="flex justify-center py-12 text-zinc-500 text-sm">{loading ? "Carregando..." : "Sem dados."}</div>;
+  if (!store) return (
+    <section className="space-y-5">
+      <PageHeader title="Contas a Receber" subtitle="Cobranças, pagamentos recebidos e inadimplência" onAdd={() => { setFormError(null); setShowModal(true); }} addLabel="Novo Recebível" />
+      <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-white py-16">
+        <p className="text-sm text-zinc-500">{loading ? "Carregando dados..." : "Erro ao carregar. Verifique a conexão com o banco."}</p>
+      </div>
+    </section>
+  );
   const overdue = store.receivables.filter((r) => r.status === "OVERDUE");
   const dueToday = store.receivables.filter((r) => r.expectedDate === todayStr && r.status !== "PAID");
   const over5 = overdue.filter((r) => (nowTs - new Date(r.expectedDate).getTime()) / 86400000 > 5);
@@ -718,7 +738,14 @@ export function PayablesModule() {
   const [showModal, setShowModal] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  if (!store) return <div className="flex justify-center py-12 text-zinc-500 text-sm">{loading ? "Carregando..." : "Sem dados."}</div>;
+  if (!store) return (
+    <section className="space-y-5">
+      <PageHeader title="Contas a Pagar" subtitle="Despesas, compromissos e pagamentos realizados" onAdd={() => { setFormError(null); setShowModal(true); }} addLabel="Novo Pagamento" />
+      <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-white py-16">
+        <p className="text-sm text-zinc-500">{loading ? "Carregando dados..." : "Erro ao carregar. Verifique a conexão com o banco."}</p>
+      </div>
+    </section>
+  );
 
   const totalOpen = store.payables.filter((p) => p.status !== "PAID").reduce((a, p) => a + p.amount, 0);
   const totalPaid = store.payables.filter((p) => p.status === "PAID").reduce((a, p) => a + p.amount, 0);

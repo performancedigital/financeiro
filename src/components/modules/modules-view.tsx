@@ -458,19 +458,63 @@ function ImportModule() {
   );
 }
 
-function EmptyModule({ module }: { module: AppModule }) {
+function ComingSoonModule({ module }: { module: AppModule }) {
+  const descriptions: Record<string, string> = {
+    dividas: "Cadastre empréstimos, financiamentos e parcelas. Simule renegociações e acompanhe o saldo devedor.",
+    documentos: "Anexe contratos, notas fiscais, comprovantes e boletos. Vincule documentos a clientes e transações.",
+    projecoes: "Veja a projeção do seu caixa até dezembro. Receitas recorrentes, despesas fixas e saldo projetado.",
+  };
+
+  const { store } = useAppStore();
+
+  if (module.key === "projecoes" && store) {
+    // Projeção básica com dados reais
+    const today = new Date();
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      return { label: d.toLocaleString("pt-BR", { month: "long", year: "numeric" }), month: d.getMonth(), year: d.getFullYear() };
+    });
+    const mrr = store.contracts.reduce((a, c) => a + c.monthlyValue, 0);
+    const fixedExpenses = store.payables.filter((p) => p.type === "FIXED" || p.type === "RECURRING").reduce((a, p) => a + p.amount, 0);
+    const moneyFmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+    return (
+      <section className="space-y-5">
+        <div><h1 className="text-xl font-bold text-zinc-900">Projeção até Dezembro</h1><p className="text-sm text-zinc-500">Baseada no MRR atual e despesas fixas cadastradas</p></div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <article className="cc-card p-5"><p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">MRR (receita recorrente)</p><p className="mt-2 text-2xl font-bold text-blue-700">{moneyFmt(mrr)}</p></article>
+          <article className="cc-card p-5"><p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Despesas fixas/mês</p><p className="mt-2 text-2xl font-bold text-red-700">{moneyFmt(fixedExpenses)}</p></article>
+          <article className="cc-card p-5"><p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Resultado mensal projetado</p><p className="mt-2 text-2xl font-bold text-emerald-700">{moneyFmt(mrr - fixedExpenses)}</p></article>
+        </div>
+        <article className="cc-card overflow-hidden">
+          <table className="cc-table">
+            <thead><tr><th className="cc-th">Mês</th><th className="cc-th text-right">Receita prevista</th><th className="cc-th text-right">Despesas fixas</th><th className="cc-th text-right">Resultado projetado</th></tr></thead>
+            <tbody>
+              {months.map((m) => (
+                <tr key={m.label} className="cc-tr">
+                  <td className="cc-td font-medium capitalize">{m.label}</td>
+                  <td className="cc-td text-right text-emerald-700">{moneyFmt(mrr)}</td>
+                  <td className="cc-td text-right text-red-700">{moneyFmt(fixedExpenses)}</td>
+                  <td className={`cc-td text-right font-bold ${mrr - fixedExpenses >= 0 ? "text-emerald-700" : "text-red-700"}`}>{moneyFmt(mrr - fixedExpenses)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </article>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-zinc-900">{module.label}</h1>
-        <p className="text-sm text-zinc-500">{module.description}</p>
-      </div>
-      <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 bg-white py-16 text-center">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="1.5" className="mb-3">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        <p className="text-sm font-medium text-zinc-500">Este módulo será implementado em breve.</p>
-      </div>
+      <div><h1 className="text-xl font-bold text-zinc-900">{module.label}</h1><p className="text-sm text-zinc-500">{descriptions[module.key] ?? module.description}</p></div>
+      <article className="cc-card p-8 text-center">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 mb-4">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+        </div>
+        <h3 className="text-base font-semibold text-zinc-900 mb-1">{module.label} em desenvolvimento</h3>
+        <p className="text-sm text-zinc-500 max-w-md mx-auto">{descriptions[module.key] ?? "Este módulo está sendo desenvolvido e estará disponível em breve."}</p>
+      </article>
     </section>
   );
 }
@@ -484,5 +528,8 @@ export function ModulesView({ module }: { module: AppModule }) {
   if (module.key === "fluxo") return <CashflowModule />;
   if (module.key === "dre") return <DreModule />;
   if (module.key === "relatorios") return <ImportModule />;
-  return <EmptyModule module={module} />;
+  if (module.key === "dividas") return <ComingSoonModule module={module} />;
+  if (module.key === "documentos") return <ComingSoonModule module={module} />;
+  if (module.key === "projecoes") return <ComingSoonModule module={module} />;
+  return <ComingSoonModule module={module} />;
 }

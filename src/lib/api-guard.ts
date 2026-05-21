@@ -9,8 +9,10 @@ export const withApiAuth = async <T>(
     return await handler(session);
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Nao autorizado." }, { status: 401 });
+      return NextResponse.json({ error: "Sessao expirada. Faca login novamente." }, { status: 401 });
     }
-    return NextResponse.json({ error: "Erro interno.", detail: String(error) }, { status: 500 });
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error("[API Error]", detail);
+    return NextResponse.json({ error: "Erro interno.", detail }, { status: 500 });
   }
 };

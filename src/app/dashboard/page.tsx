@@ -1,4 +1,5 @@
 import { ModulesView } from "@/components/modules/modules-view";
+import { DashboardClient } from "@/components/shell/dashboard-client";
 import { SidebarNav } from "@/components/shell/sidebar-nav";
 import { requireSession } from "@/lib/auth";
 import { getModules, findModuleIn } from "@/lib/navigation";
@@ -19,7 +20,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const isPessoal = (session.workspaceType ?? "EMPRESA") === "PESSOAL";
 
   return (
-    <div className="min-h-screen bg-zinc-100">
+    <DashboardClient>
+      <div className="min-h-screen bg-zinc-100">
       <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white">
         <div className="flex items-center justify-between px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
@@ -58,6 +60,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <ModulesView module={activeModule} workspaceType={session.workspaceType ?? "EMPRESA"} />
         </main>
       </div>
-    </div>
+      </div>
+    </DashboardClient>
   );
 }

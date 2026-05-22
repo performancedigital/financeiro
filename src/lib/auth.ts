@@ -15,6 +15,7 @@ export type SessionPayload = {
   email: string;
   name: string;
   workspaceId: string;
+  workspaceType: string;
 };
 
 export const hashPassword = (password: string) => bcrypt.hash(password, 12);
@@ -28,6 +29,7 @@ export const validateCredentials = async (
 ): Promise<SessionPayload | null> => {
   const user = await prisma.user.findFirst({
     where: { email: email.toLowerCase().trim(), deletedAt: null },
+    include: { workspace: true },
   });
   if (!user) return null;
   const valid = await verifyPassword(password, user.passwordHash);
@@ -37,6 +39,7 @@ export const validateCredentials = async (
     email: user.email,
     name: user.name,
     workspaceId: user.workspaceId,
+    workspaceType: user.workspace.workspaceType,
   };
 };
 
@@ -45,17 +48,16 @@ export const createUser = async (params: {
   email: string;
   password: string;
   workspaceName: string;
+  workspaceType: string;
 }) => {
-  const existing = await prisma.user.findFirst({
-    where: { email: params.email.toLowerCase().trim() },
-  });
+  const existing = await prisma.user.findFirst({ where: { email: params.email.toLowerCase().trim() } });
   if (existing) throw new Error("E-mail já cadastrado.");
 
   const workspaceId = `ws_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const passwordHash = await hashPassword(params.password);
 
   await prisma.workspace.create({
-    data: { id: workspaceId, name: params.workspaceName },
+    data: { id: workspaceId, name: params.workspaceName, workspaceType: params.workspaceType },
   });
 
   const user = await prisma.user.create({
@@ -69,7 +71,6 @@ export const createUser = async (params: {
   });
 
   await seedWorkspaceOptions(workspaceId);
-
   return user;
 };
 

@@ -13,9 +13,14 @@ const icons: Record<string, string> = {
   documentos: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
   projecoes:  "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
   relatorios: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4",
+  dashboard_pessoal: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
+  gastos:     "M17 13l-5 5m0 0l-5-5m5 5V6",
+  orcamento:  "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
+  investimentos: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
+  metas:      "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z",
 };
 
-export function SidebarNav({ modules, active }: { modules: AppModule[]; active: string }) {
+export function SidebarNav({ modules, active, accentColor = "blue" }: { modules: AppModule[]; active: string; accentColor?: "blue" | "indigo" }) {
   return (
     <nav className="space-y-0.5">
       {modules.map((item) => {
@@ -28,7 +33,7 @@ export function SidebarNav({ modules, active }: { modules: AppModule[]; active: 
             className={[
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
               isActive
-                ? "bg-blue-600 text-white"
+                ? (accentColor === "indigo" ? "bg-indigo-600 text-white" : "bg-blue-600 text-white")
                 : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
             ].join(" ")}
           >

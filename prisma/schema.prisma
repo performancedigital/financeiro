@@ -59,6 +59,7 @@ enum RecurrenceType {
 model Workspace {
   id               String            @id
   name             String
+  workspaceType    String            @default("EMPRESA")
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   users            User[]

@@ -14,6 +14,7 @@ import { DebtModule } from "@/components/modules/debt-module";
 import { DocumentModule } from "@/components/modules/document-module";
 import { ImportModule } from "@/components/modules/import-module";
 import { monthlyCashflow, simplifiedDre } from "@/lib/finance-math";
+import { DashboardPessoalModule, GastosModule, OrcamentoModule, InvestimentosModule, MetasModule } from "@/components/modules/personal-modules";
 
 const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -320,7 +321,13 @@ function ComingSoonModule({ module }: { module: AppModule }) {
   );
 }
 
-export function ModulesView({ module }: { module: AppModule }) {
+export function ModulesView({ module, workspaceType }: { module: AppModule; workspaceType: string }) {
+  // Módulos do painel pessoal
+  if (module.key === "dashboard_pessoal") return <DashboardPessoalModule />;
+  if (module.key === "gastos") return <GastosModule />;
+  if (module.key === "orcamento") return <OrcamentoModule />;
+  if (module.key === "investimentos") return <InvestimentosModule />;
+  if (module.key === "metas") return <MetasModule />;
   if (module.key === "dashboard") return <DashboardModule />;
   if (module.key === "contas") return <AccountsModule />;
   if (module.key === "clientes") return <ClientsModule />;

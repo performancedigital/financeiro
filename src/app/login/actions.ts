@@ -1,5 +1,4 @@
 "use server";
-
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { validateCredentials, setSessionCookie } from "@/lib/auth";
@@ -17,10 +16,8 @@ export async function loginAction(_prev: State, formData: FormData): Promise<Sta
     password: String(formData.get("password") ?? ""),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
-
   const session = await validateCredentials(parsed.data.email, parsed.data.password);
   if (!session) return { error: "E-mail ou senha incorretos." };
-
   await setSessionCookie(session);
   redirect("/dashboard");
 }

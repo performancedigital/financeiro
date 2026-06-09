@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAppStore } from "@/lib/store-context";
 import { Modal } from "@/components/ui/modal";
 import { debtSchema } from "@/lib/validators";
+import type { DebtRow } from "@/lib/db-types";
 
 const money = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const pct = (v: number) => `${v.toFixed(2)}% a.m.`;
@@ -28,15 +29,19 @@ function FormRow({ children }: { children: React.ReactNode }) {
 }
 
 export function DebtModule() {
-  const { store, loading, createDebt, deleteDebt } = useAppStore();
+  const { store, loading, createDebt, updateDebt, deleteDebt } = useAppStore();
   const [showModal, setShowModal] = useState(false);
+  const [editDebt, setEditDebt] = useState<DebtRow | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const openNew = () => { setEditDebt(null); setFormError(null); setShowModal(true); };
+  const openEdit = (d: DebtRow) => { setEditDebt(d); setFormError(null); setShowModal(true); };
 
   if (!store) return (
     <section className="space-y-5">
       <div className="flex items-center justify-between">
         <div><h1 className="text-xl font-bold text-zinc-900">Dívidas & Empréstimos</h1><p className="text-sm text-zinc-500">Controle seus débitos, financiamentos e parcelas</p></div>
-        <button type="button" onClick={() => setShowModal(true)} className="cc-btn-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" d="M12 5v14M5 12h14"/></svg>Nova Dívida</button>
+        <button type="button" onClick={openNew} className="cc-btn-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" d="M12 5v14M5 12h14"/></svg>Nova Dívida</button>
       </div>
       <div className="flex justify-center py-12 text-zinc-500 text-sm">{loading ? "Carregando..." : "Sem dados."}</div>
     </section>
@@ -59,8 +64,10 @@ export function DebtModule() {
       status: f.get("status"), notes: f.get("notes") || undefined,
     });
     if (!parsed.success) { setFormError(parsed.error.issues[0]?.message ?? "Erro"); return; }
-    await createDebt(parsed.data);
+    if (editDebt) await updateDebt(editDebt.id, parsed.data);
+    else await createDebt(parsed.data);
     setFormError(null);
+    setEditDebt(null);
     setShowModal(false);
   };
 
@@ -68,7 +75,7 @@ export function DebtModule() {
     <section className="space-y-5">
       <div className="flex items-center justify-between">
         <div><h1 className="text-xl font-bold text-zinc-900">Dívidas & Empréstimos</h1><p className="text-sm text-zinc-500">Controle seus débitos, financiamentos e parcelas</p></div>
-        <button type="button" onClick={() => { setFormError(null); setShowModal(true); }} className="cc-btn-primary">
+        <button type="button" onClick={openNew} className="cc-btn-primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" d="M12 5v14M5 12h14"/></svg>
           Nova Dívida
         </button>
@@ -107,7 +114,12 @@ export function DebtModule() {
                     <td className="cc-td text-zinc-500">{d.dueDate ?? "-"}</td>
                     <td className="cc-td text-zinc-500">{d.totalInstalments ? `${d.paidInstalments}/${d.totalInstalments}` : "-"}</td>
                     <td className="cc-td"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.color}`}>{st.label}</span></td>
-                    <td className="cc-td"><button type="button" onClick={() => void deleteDebt(d.id)} className="text-xs text-red-600 hover:underline">Excluir</button></td>
+                    <td className="cc-td">
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => openEdit(d)} className="text-xs text-blue-600 hover:underline">Editar</button>
+                        <button type="button" onClick={() => void deleteDebt(d.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -117,13 +129,13 @@ export function DebtModule() {
       )}
 
       {showModal && (
-        <Modal title="Nova Dívida / Empréstimo" onClose={() => setShowModal(false)}>
+        <Modal title={editDebt ? "Editar Dívida / Empréstimo" : "Nova Dívida / Empréstimo"} onClose={() => { setShowModal(false); setEditDebt(null); }}>
           <form onSubmit={handleAdd} className="space-y-4">
             {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
             <FormRow>
-              <Field label="Credor *"><input name="creditor" required placeholder="Ex: Banco Bradesco" className="cc-input" /></Field>
+              <Field label="Credor *"><input name="creditor" required defaultValue={editDebt?.creditor ?? ""} placeholder="Ex: Banco Bradesco" className="cc-input" /></Field>
               <Field label="Tipo *">
-                <select name="type" defaultValue="LOAN" className="cc-select">
+                <select name="type" defaultValue={editDebt?.type ?? "LOAN"} className="cc-select">
                   <option value="BANK">Banco</option><option value="CREDIT_CARD">Cartão de Crédito</option>
                   <option value="FAMILY">Familiar</option><option value="SUPPLIER">Fornecedor</option>
                   <option value="TAX">Imposto / Tributário</option><option value="LOAN">Empréstimo Pessoal</option>
@@ -132,29 +144,29 @@ export function DebtModule() {
               </Field>
             </FormRow>
             <FormRow>
-              <Field label="Valor Original (R$) *"><input name="originalAmount" type="number" step="0.01" min="0.01" required className="cc-input" /></Field>
-              <Field label="Saldo Devedor Atual (R$) *"><input name="outstandingAmount" type="number" step="0.01" min="0" required className="cc-input" /></Field>
+              <Field label="Valor Original (R$) *"><input name="originalAmount" type="number" step="0.01" min="0.01" required defaultValue={editDebt ? String(editDebt.originalAmount) : ""} className="cc-input" /></Field>
+              <Field label="Saldo Devedor Atual (R$) *"><input name="outstandingAmount" type="number" step="0.01" min="0" required defaultValue={editDebt ? String(editDebt.outstandingAmount) : ""} className="cc-input" /></Field>
             </FormRow>
             <FormRow>
-              <Field label="Taxa Mensal (%)"><input name="monthlyRate" type="number" step="0.01" min="0" placeholder="Ex: 2.5" className="cc-input" /></Field>
-              <Field label="Vencimento"><input name="dueDate" type="date" className="cc-input" /></Field>
+              <Field label="Taxa Mensal (%)"><input name="monthlyRate" type="number" step="0.01" min="0" defaultValue={editDebt?.monthlyRate != null ? String(editDebt.monthlyRate) : ""} placeholder="Ex: 2.5" className="cc-input" /></Field>
+              <Field label="Vencimento"><input name="dueDate" type="date" defaultValue={editDebt?.dueDate ?? ""} className="cc-input" /></Field>
             </FormRow>
             <FormRow>
-              <Field label="Total de Parcelas"><input name="totalInstalments" type="number" min="1" className="cc-input" /></Field>
-              <Field label="Parcelas Pagas"><input name="paidInstalments" type="number" min="0" defaultValue="0" className="cc-input" /></Field>
+              <Field label="Total de Parcelas"><input name="totalInstalments" type="number" min="1" defaultValue={editDebt?.totalInstalments != null ? String(editDebt.totalInstalments) : ""} className="cc-input" /></Field>
+              <Field label="Parcelas Pagas"><input name="paidInstalments" type="number" min="0" defaultValue={editDebt ? String(editDebt.paidInstalments) : "0"} className="cc-input" /></Field>
             </FormRow>
             <FormRow>
               <Field label="Status *">
-                <select name="status" defaultValue="ON_TIME" className="cc-select">
+                <select name="status" defaultValue={editDebt?.status ?? "ON_TIME"} className="cc-select">
                   <option value="ON_TIME">Em dia</option><option value="LATE">Atrasada</option>
                   <option value="RENEGOTIATED">Renegociada</option><option value="PAID_OFF">Quitada</option>
                 </select>
               </Field>
-              <Field label="Observações"><input name="notes" placeholder="Opcional..." className="cc-input" /></Field>
+              <Field label="Observações"><input name="notes" defaultValue={editDebt?.notes ?? ""} placeholder="Opcional..." className="cc-input" /></Field>
             </FormRow>
             <div className="flex gap-3 pt-2">
-              <button type="submit" className="cc-btn-primary">Salvar Dívida</button>
-              <button type="button" onClick={() => setShowModal(false)} className="cc-btn-ghost">Cancelar</button>
+              <button type="submit" className="cc-btn-primary">{editDebt ? "Salvar Alterações" : "Salvar Dívida"}</button>
+              <button type="button" onClick={() => { setShowModal(false); setEditDebt(null); }} className="cc-btn-ghost">Cancelar</button>
             </div>
           </form>
         </Modal>

@@ -45,8 +45,12 @@ export const simplifiedDre = (snapshot: DbSnapshot) => {
     .filter((t) => t.direction === "EXPENSE" && t.category.toLowerCase().includes("ferrament"))
     .reduce((acc, t) => acc + t.amount, 0);
 
+  // Despesas que não se enquadram nas categorias detalhadas acima.
+  // Garante que as linhas do demonstrativo somem exatamente até o resultado operacional.
+  const outras = Math.max(0, expense - impostos - equipe - ferramentas - proLabore);
+
   const operacional = income - expense;
   const margem = income > 0 ? (operacional / income) * 100 : 0;
 
-  return { income, expense, impostos, proLabore, equipe, ferramentas, operacional, margem };
+  return { income, expense, impostos, proLabore, equipe, ferramentas, outras, operacional, margem };
 };

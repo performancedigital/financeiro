@@ -99,3 +99,28 @@ export const documentSchema = z.object({
 
 export type DebtInput = z.infer<typeof debtSchema>;
 export type DocumentInput = z.infer<typeof documentSchema>;
+
+export const investmentSchema = z.object({
+  name: z.string().min(2, "Nome do ativo obrigatorio."),
+  type: z.string().min(1, "Tipo obrigatorio."),
+  investedAmount: z.coerce.number().nonnegative(),
+  currentValue: z.coerce.number().nonnegative(),
+  notes: z.string().optional(),
+});
+
+export const goalSchema = z.object({
+  name: z.string().min(2, "Nome da meta obrigatorio."),
+  type: z.string().min(1, "Tipo obrigatorio."),
+  targetAmount: z.coerce.number().positive("Valor alvo deve ser maior que zero."),
+  currentAmount: z.coerce.number().nonnegative().default(0),
+  deadline: z.string().optional(),
+});
+
+export const budgetSchema = z.object({
+  category: z.string().min(1, "Categoria obrigatoria."),
+  limitAmount: z.coerce.number().positive("Limite deve ser maior que zero."),
+});
+
+export type InvestmentInput = z.infer<typeof investmentSchema>;
+export type GoalInput = z.infer<typeof goalSchema>;
+export type BudgetInput = z.infer<typeof budgetSchema>;

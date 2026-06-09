@@ -161,31 +161,37 @@ export function GastosModule() {
 
 /* ── ORÇAMENTO ── */
 
-type BudgetItem = { category: string; limit: number };
-
 export function OrcamentoModule() {
-  const { store, loading } = useAppStore();
-  const [budgets, setBudgets] = useState<BudgetItem[]>([
-    { category: "Alimentação", limit: 800 },
-    { category: "Transporte", limit: 400 },
-    { category: "Lazer", limit: 300 },
-    { category: "Saúde", limit: 200 },
-  ]);
+  const { store, loading, createBudget, deleteBudget } = useAppStore();
   const [showAdd, setShowAdd] = useState(false);
   const [newCat, setNewCat] = useState(""); const [newLimit, setNewLimit] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   if (!store) return <div className="flex justify-center py-12 text-zinc-500 text-sm">{loading ? "Carregando..." : "Sem dados."}</div>;
 
+  const budgets = store.budgets;
   const expenseByCategory = store.transactions
     .filter((t) => t.direction === "EXPENSE")
     .reduce((acc, t) => { acc[t.category] = (acc[t.category] ?? 0) + t.amount; return acc; }, {} as Record<string, number>);
 
-  const totalLimit = budgets.reduce((a, b) => a + b.limit, 0);
+  const totalLimit = budgets.reduce((a, b) => a + b.limitAmount, 0);
   const totalSpent = budgets.reduce((a, b) => a + (expenseByCategory[b.category] ?? 0), 0);
+
+  const handleAdd = async () => {
+    if (!newCat.trim() || !newLimit) { setFormError("Informe categoria e limite."); return; }
+    setSaving(true);
+    try {
+      await createBudget({ category: newCat.trim(), limitAmount: Number(newLimit) });
+      setNewCat(""); setNewLimit(""); setFormError(null); setShowAdd(false);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Erro ao salvar.");
+    } finally { setSaving(false); }
+  };
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Orçamento Mensal" subtitle="Defina limites de gasto por categoria" onAdd={() => setShowAdd(true)} addLabel="Nova categoria" />
+      <PageHeader title="Orçamento Mensal" subtitle="Defina limites de gasto por categoria" onAdd={() => { setFormError(null); setShowAdd(true); }} addLabel="Nova categoria" />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <KpiCard label="Total orçado" value={money(totalLimit)} color="indigo" />
@@ -193,38 +199,47 @@ export function OrcamentoModule() {
         <KpiCard label="Disponível" value={money(totalLimit - totalSpent)} color={totalLimit - totalSpent >= 0 ? "green" : "red"} />
       </div>
 
-      <div className="space-y-3">
-        {budgets.map((b) => {
-          const spent = expenseByCategory[b.category] ?? 0;
-          const pctSpent = b.limit > 0 ? (spent / b.limit) * 100 : 0;
-          const over = pctSpent > 100;
-          return (
-            <article key={b.category} className="cc-card p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-sm font-semibold text-zinc-800">{b.category}</p>
-                  <p className="text-xs text-zinc-500">{money(spent)} de {money(b.limit)}</p>
+      {budgets.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 bg-white py-16 text-center">
+          <p className="text-sm font-medium text-zinc-500">Nenhum orçamento definido.</p>
+          <p className="text-xs text-zinc-400 mt-1">Clique em &quot;Nova categoria&quot; para definir um limite mensal.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {budgets.map((b) => {
+            const spent = expenseByCategory[b.category] ?? 0;
+            const pctSpent = b.limitAmount > 0 ? (spent / b.limitAmount) * 100 : 0;
+            const over = pctSpent > 100;
+            return (
+              <article key={b.id} className="cc-card p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-800">{b.category}</p>
+                    <p className="text-xs text-zinc-500">{money(spent)} de {money(b.limitAmount)}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-bold ${over ? "text-red-700" : pctSpent > 80 ? "text-amber-700" : "text-emerald-700"}`}>{pct(pctSpent)}</span>
+                    <button type="button" onClick={() => void deleteBudget(b.id)} className="text-xs text-zinc-400 hover:text-red-600">✕</button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-sm font-bold ${over ? "text-red-700" : pctSpent > 80 ? "text-amber-700" : "text-emerald-700"}`}>{pct(pctSpent)}</span>
-                  <button type="button" onClick={() => setBudgets((prev) => prev.filter((x) => x.category !== b.category))} className="text-xs text-zinc-400 hover:text-red-600">✕</button>
+                <div className="h-2.5 rounded-full bg-zinc-100 overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${over ? "bg-red-500" : pctSpent > 80 ? "bg-amber-500" : "bg-indigo-500"}`} style={{ width: `${Math.min(100, pctSpent)}%` }} />
                 </div>
-              </div>
-              <div className="h-2.5 rounded-full bg-zinc-100 overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${over ? "bg-red-500" : pctSpent > 80 ? "bg-amber-500" : "bg-indigo-500"}`} style={{ width: `${Math.min(100, pctSpent)}%` }} />
-              </div>
-            </article>
-          );
-        })}
-      </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
 
       {showAdd && (
         <Modal title="Nova Categoria de Orçamento" onClose={() => setShowAdd(false)}>
           <div className="space-y-4">
-            <div><label className="cc-label">Categoria</label><input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Ex: Streaming, Academia..." className="cc-input" /></div>
-            <div><label className="cc-label">Limite mensal (R$)</label><input type="number" value={newLimit} onChange={(e) => setNewLimit(e.target.value)} placeholder="Ex: 150" className="cc-input" /></div>
+            {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
+            <div><label className="cc-label">Categoria</label><input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Ex: Alimentação, Transporte, Lazer..." className="cc-input" /></div>
+            <div><label className="cc-label">Limite mensal (R$)</label><input type="number" value={newLimit} onChange={(e) => setNewLimit(e.target.value)} placeholder="Ex: 800" className="cc-input" /></div>
+            <p className="text-xs text-zinc-400">Dica: use o mesmo nome da categoria que você lança nas transações para o gasto ser somado automaticamente.</p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => { if (newCat && newLimit) { setBudgets((p) => [...p, { category: newCat, limit: Number(newLimit) }]); setNewCat(""); setNewLimit(""); setShowAdd(false); } }} className="cc-btn text-white text-sm px-4 py-2 rounded-lg" style={{ background: "#4f46e5" }}>Adicionar</button>
+              <button type="button" onClick={handleAdd} disabled={saving} className="cc-btn text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60" style={{ background: "#4f46e5" }}>{saving ? "Salvando..." : "Adicionar"}</button>
               <button type="button" onClick={() => setShowAdd(false)} className="cc-btn-ghost">Cancelar</button>
             </div>
           </div>
@@ -236,39 +251,57 @@ export function OrcamentoModule() {
 
 /* ── INVESTIMENTOS ── */
 
-type Investment = { id: string; name: string; type: string; amount: number; currentValue: number; notes?: string };
-
 const INV_TYPES: Record<string, string> = {
   POUPANCA: "Poupança", CDB: "CDB/LCI/LCA", TESOURO: "Tesouro Direto",
   ACOES: "Ações", FII: "Fundos Imobiliários", CRIPTO: "Criptomoedas",
-  PREVIDENCIA: "Previdência", FUNDO: "Fundos de Investimento", OUTRO: "Outro",
+  PREVIDENCIA: "Previdência", FUNDO: "Fundos de Investimento", OTHER: "Outro",
 };
 
-export function InvestimentosModule() {
-  const [investments, setInvestments] = useState<Investment[]>([
-    { id: "1", name: "Reserva de emergência", type: "POUPANCA", amount: 5000, currentValue: 5200 },
-    { id: "2", name: "CDB Banco Inter 110% CDI", type: "CDB", amount: 10000, currentValue: 10450 },
-  ]);
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: "", type: "CDB", amount: "", currentValue: "", notes: "" });
+type InvForm = { name: string; type: string; investedAmount: string; currentValue: string; notes: string };
+const emptyInvForm: InvForm = { name: "", type: "CDB", investedAmount: "", currentValue: "", notes: "" };
 
-  const totalInvested = investments.reduce((a, i) => a + i.amount, 0);
+export function InvestimentosModule() {
+  const { store, loading, createInvestment, updateInvestment, deleteInvestment } = useAppStore();
+  const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState<InvForm>(emptyInvForm);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  if (!store) return <div className="flex justify-center py-12 text-zinc-500 text-sm">{loading ? "Carregando..." : "Sem dados."}</div>;
+
+  const investments = store.investments;
+  const totalInvested = investments.reduce((a, i) => a + i.investedAmount, 0);
   const totalCurrent = investments.reduce((a, i) => a + i.currentValue, 0);
   const totalReturn = totalCurrent - totalInvested;
   const returnPct = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
-
   const byType = investments.reduce((acc, i) => { acc[i.type] = (acc[i.type] ?? 0) + i.currentValue; return acc; }, {} as Record<string, number>);
 
-  const addInvestment = () => {
-    if (!form.name || !form.amount || !form.currentValue) return;
-    setInvestments((p) => [...p, { id: String(Date.now()), name: form.name, type: form.type, amount: Number(form.amount), currentValue: Number(form.currentValue), notes: form.notes }]);
-    setForm({ name: "", type: "CDB", amount: "", currentValue: "", notes: "" });
-    setShowModal(false);
+  const openNew = () => { setEditId(null); setForm(emptyInvForm); setFormError(null); setShowModal(true); };
+  const openEdit = (id: string) => {
+    const inv = investments.find((x) => x.id === id);
+    if (!inv) return;
+    setEditId(id);
+    setForm({ name: inv.name, type: inv.type, investedAmount: String(inv.investedAmount), currentValue: String(inv.currentValue), notes: inv.notes ?? "" });
+    setFormError(null); setShowModal(true);
+  };
+
+  const save = async () => {
+    if (!form.name || !form.investedAmount || !form.currentValue) { setFormError("Preencha nome, investido e valor atual."); return; }
+    setSaving(true);
+    const payload = { name: form.name, type: form.type, investedAmount: Number(form.investedAmount), currentValue: Number(form.currentValue), notes: form.notes || undefined };
+    try {
+      if (editId) await updateInvestment(editId, payload);
+      else await createInvestment(payload);
+      setForm(emptyInvForm); setEditId(null); setFormError(null); setShowModal(false);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Erro ao salvar.");
+    } finally { setSaving(false); }
   };
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Carteira de Investimentos" subtitle="Acompanhe seus investimentos e rendimentos" onAdd={() => setShowModal(true)} addLabel="Novo Investimento" />
+      <PageHeader title="Carteira de Investimentos" subtitle="Acompanhe seus investimentos e rendimentos" onAdd={openNew} addLabel="Novo Investimento" />
 
       <div className="grid gap-3 sm:grid-cols-4">
         <KpiCard label="Total Investido" value={money(totalInvested)} color="indigo" />
@@ -277,7 +310,6 @@ export function InvestimentosModule() {
         <KpiCard label="Rentabilidade" value={pct(returnPct)} sub={returnPct >= 0 ? "positivo" : "negativo"} color={returnPct >= 0 ? "green" : "red"} />
       </div>
 
-      {/* Distribuição por tipo */}
       {Object.keys(byType).length > 0 && (
         <article className="cc-card p-5">
           <h3 className="text-sm font-bold text-zinc-900 mb-4">Distribuição por Tipo</h3>
@@ -287,10 +319,10 @@ export function InvestimentosModule() {
                 <div className="flex-1">
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-zinc-700">{INV_TYPES[type] ?? type}</span>
-                    <span className="font-semibold">{money(val)} <span className="text-zinc-400 text-xs">({pct((val / totalCurrent) * 100)})</span></span>
+                    <span className="font-semibold">{money(val)} <span className="text-zinc-400 text-xs">({totalCurrent > 0 ? pct((val / totalCurrent) * 100) : "0%"})</span></span>
                   </div>
                   <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
-                    <div className="h-full rounded-full bg-indigo-500" style={{ width: `${(val / totalCurrent) * 100}%` }} />
+                    <div className="h-full rounded-full bg-indigo-500" style={{ width: `${totalCurrent > 0 ? (val / totalCurrent) * 100 : 0}%` }} />
                   </div>
                 </div>
               </div>
@@ -304,21 +336,26 @@ export function InvestimentosModule() {
           <thead><tr>
             <th className="cc-th">Ativo</th><th className="cc-th">Tipo</th>
             <th className="cc-th text-right">Investido</th><th className="cc-th text-right">Atual</th>
-            <th className="cc-th text-right">Rendimento</th><th className="cc-th"></th>
+            <th className="cc-th text-right">Rendimento</th><th className="cc-th">Ações</th>
           </tr></thead>
           <tbody>
             {investments.length === 0 && <tr><td colSpan={6} className="cc-td text-center text-zinc-500 py-8">Nenhum investimento cadastrado.</td></tr>}
             {investments.map((i) => {
-              const ret = i.currentValue - i.amount;
-              const retPct = i.amount > 0 ? (ret / i.amount) * 100 : 0;
+              const ret = i.currentValue - i.investedAmount;
+              const retPct = i.investedAmount > 0 ? (ret / i.investedAmount) * 100 : 0;
               return (
                 <tr key={i.id} className="cc-tr">
                   <td className="cc-td font-semibold">{i.name}</td>
                   <td className="cc-td"><span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">{INV_TYPES[i.type] ?? i.type}</span></td>
-                  <td className="cc-td text-right">{money(i.amount)}</td>
+                  <td className="cc-td text-right">{money(i.investedAmount)}</td>
                   <td className="cc-td text-right font-semibold">{money(i.currentValue)}</td>
                   <td className={`cc-td text-right font-semibold ${ret >= 0 ? "text-emerald-700" : "text-red-700"}`}>{money(ret)} <span className="text-xs">({pct(retPct)})</span></td>
-                  <td className="cc-td"><button type="button" onClick={() => setInvestments((p) => p.filter((x) => x.id !== i.id))} className="text-xs text-red-600 hover:underline">Excluir</button></td>
+                  <td className="cc-td">
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => openEdit(i.id)} className="text-xs text-indigo-600 hover:underline">Editar</button>
+                      <button type="button" onClick={() => void deleteInvestment(i.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                    </div>
+                  </td>
                 </tr>
               );
             })}
@@ -327,8 +364,9 @@ export function InvestimentosModule() {
       </article>
 
       {showModal && (
-        <Modal title="Novo Investimento" onClose={() => setShowModal(false)}>
+        <Modal title={editId ? "Editar Investimento" : "Novo Investimento"} onClose={() => setShowModal(false)}>
           <div className="space-y-4">
+            {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
             <div><label className="cc-label">Nome do ativo *</label><input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Ex: CDB Banco Inter 110% CDI" className="cc-input" /></div>
             <div><label className="cc-label">Tipo *</label>
               <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} className="cc-select">
@@ -336,12 +374,12 @@ export function InvestimentosModule() {
               </select>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><label className="cc-label">Valor investido (R$) *</label><input type="number" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} className="cc-input" /></div>
-              <div><label className="cc-label">Valor atual (R$) *</label><input type="number" value={form.currentValue} onChange={(e) => setForm((p) => ({ ...p, currentValue: e.target.value }))} className="cc-input" /></div>
+              <div><label className="cc-label">Valor investido (R$) *</label><input type="number" step="0.01" value={form.investedAmount} onChange={(e) => setForm((p) => ({ ...p, investedAmount: e.target.value }))} className="cc-input" /></div>
+              <div><label className="cc-label">Valor atual (R$) *</label><input type="number" step="0.01" value={form.currentValue} onChange={(e) => setForm((p) => ({ ...p, currentValue: e.target.value }))} className="cc-input" /></div>
             </div>
             <div><label className="cc-label">Observações</label><input value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Opcional..." className="cc-input" /></div>
             <div className="flex gap-2">
-              <button type="button" onClick={addInvestment} className="cc-btn text-white text-sm px-4 py-2 rounded-lg" style={{ background: "#4f46e5" }}>Salvar</button>
+              <button type="button" onClick={save} disabled={saving} className="cc-btn text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60" style={{ background: "#4f46e5" }}>{saving ? "Salvando..." : "Salvar"}</button>
               <button type="button" onClick={() => setShowModal(false)} className="cc-btn-ghost">Cancelar</button>
             </div>
           </div>
@@ -353,36 +391,54 @@ export function InvestimentosModule() {
 
 /* ── METAS FINANCEIRAS ── */
 
-type Goal = { id: string; name: string; target: number; current: number; deadline?: string; type: string };
-
 const GOAL_TYPES: Record<string, string> = {
   EMERGENCY: "Reserva de Emergência", TRAVEL: "Viagem", PROPERTY: "Imóvel",
   VEHICLE: "Veículo", EDUCATION: "Educação", RETIREMENT: "Aposentadoria", OTHER: "Outra Meta",
 };
 
+type GoalForm = { name: string; type: string; targetAmount: string; currentAmount: string; deadline: string };
+const emptyGoalForm: GoalForm = { name: "", type: "OTHER", targetAmount: "", currentAmount: "", deadline: "" };
+
 export function MetasModule() {
-  const { store } = useAppStore();
-  const [goals, setGoals] = useState<Goal[]>([
-    { id: "1", name: "Reserva de emergência (6 meses)", type: "EMERGENCY", target: 18000, current: 5200 },
-    { id: "2", name: "Viagem para Europa", type: "TRAVEL", target: 15000, current: 2500, deadline: "2027-06-01" },
-  ]);
+  const { store, loading, createGoal, updateGoal, deleteGoal } = useAppStore();
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: "", type: "OTHER", target: "", current: "", deadline: "" });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState<GoalForm>(emptyGoalForm);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const totalSaved = goals.reduce((a, g) => a + g.current, 0);
-  const totalTarget = goals.reduce((a, g) => a + g.target, 0);
-  const completed = goals.filter((g) => g.current >= g.target).length;
+  if (!store) return <div className="flex justify-center py-12 text-zinc-500 text-sm">{loading ? "Carregando..." : "Sem dados."}</div>;
 
-  const addGoal = () => {
-    if (!form.name || !form.target) return;
-    setGoals((p) => [...p, { id: String(Date.now()), name: form.name, type: form.type, target: Number(form.target), current: Number(form.current) || 0, deadline: form.deadline || undefined }]);
-    setForm({ name: "", type: "OTHER", target: "", current: "", deadline: "" });
-    setShowModal(false);
+  const goals = store.goals;
+  const totalSaved = goals.reduce((a, g) => a + g.currentAmount, 0);
+  const totalTarget = goals.reduce((a, g) => a + g.targetAmount, 0);
+  const completed = goals.filter((g) => g.currentAmount >= g.targetAmount).length;
+
+  const openNew = () => { setEditId(null); setForm(emptyGoalForm); setFormError(null); setShowModal(true); };
+  const openEdit = (id: string) => {
+    const g = goals.find((x) => x.id === id);
+    if (!g) return;
+    setEditId(id);
+    setForm({ name: g.name, type: g.type, targetAmount: String(g.targetAmount), currentAmount: String(g.currentAmount), deadline: g.deadline ?? "" });
+    setFormError(null); setShowModal(true);
+  };
+
+  const save = async () => {
+    if (!form.name || !form.targetAmount) { setFormError("Preencha nome e valor alvo."); return; }
+    setSaving(true);
+    const payload = { name: form.name, type: form.type, targetAmount: Number(form.targetAmount), currentAmount: Number(form.currentAmount) || 0, deadline: form.deadline || undefined };
+    try {
+      if (editId) await updateGoal(editId, payload);
+      else await createGoal(payload);
+      setForm(emptyGoalForm); setEditId(null); setFormError(null); setShowModal(false);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Erro ao salvar.");
+    } finally { setSaving(false); }
   };
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Metas Financeiras" subtitle="Seus objetivos e projetos de poupança" onAdd={() => setShowModal(true)} addLabel="Nova Meta" />
+      <PageHeader title="Metas Financeiras" subtitle="Seus objetivos e projetos de poupança" onAdd={openNew} addLabel="Nova Meta" />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <KpiCard label="Total poupado" value={money(totalSaved)} color="indigo" />
@@ -394,12 +450,13 @@ export function MetasModule() {
         {goals.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 bg-white py-16 text-center">
             <p className="text-sm font-medium text-zinc-500">Nenhuma meta cadastrada.</p>
+            <p className="text-xs text-zinc-400 mt-1">Clique em &quot;Nova Meta&quot; para começar.</p>
           </div>
         )}
         {goals.map((g) => {
-          const pctDone = g.target > 0 ? Math.min(100, (g.current / g.target) * 100) : 0;
-          const remaining = g.target - g.current;
-          const done = g.current >= g.target;
+          const pctDone = g.targetAmount > 0 ? Math.min(100, (g.currentAmount / g.targetAmount) * 100) : 0;
+          const remaining = g.targetAmount - g.currentAmount;
+          const done = g.currentAmount >= g.targetAmount;
           return (
             <article key={g.id} className="cc-card p-5">
               <div className="flex items-start justify-between mb-3">
@@ -410,11 +467,14 @@ export function MetasModule() {
                   </div>
                   <p className="text-xs text-zinc-500 mt-0.5">{GOAL_TYPES[g.type] ?? g.type}{g.deadline ? ` · Prazo: ${g.deadline}` : ""}</p>
                 </div>
-                <button type="button" onClick={() => setGoals((p) => p.filter((x) => x.id !== g.id))} className="text-xs text-red-600 hover:underline">Excluir</button>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => openEdit(g.id)} className="text-xs text-indigo-600 hover:underline">Editar</button>
+                  <button type="button" onClick={() => void deleteGoal(g.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                </div>
               </div>
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-zinc-700">{money(g.current)} guardado</span>
-                <span className="font-semibold text-zinc-900">{money(g.target)} meta</span>
+                <span className="text-zinc-700">{money(g.currentAmount)} guardado</span>
+                <span className="font-semibold text-zinc-900">{money(g.targetAmount)} meta</span>
               </div>
               <div className="h-3 rounded-full bg-zinc-100 overflow-hidden mb-2">
                 <div className={`h-full rounded-full transition-all ${done ? "bg-emerald-500" : "bg-indigo-500"}`} style={{ width: `${pctDone}%` }} />
@@ -429,8 +489,9 @@ export function MetasModule() {
       </div>
 
       {showModal && (
-        <Modal title="Nova Meta Financeira" onClose={() => setShowModal(false)}>
+        <Modal title={editId ? "Editar Meta" : "Nova Meta Financeira"} onClose={() => setShowModal(false)}>
           <div className="space-y-4">
+            {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
             <div><label className="cc-label">Nome da meta *</label><input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Ex: Reserva de emergência" className="cc-input" /></div>
             <div><label className="cc-label">Tipo</label>
               <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} className="cc-select">
@@ -438,12 +499,12 @@ export function MetasModule() {
               </select>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><label className="cc-label">Valor alvo (R$) *</label><input type="number" value={form.target} onChange={(e) => setForm((p) => ({ ...p, target: e.target.value }))} className="cc-input" /></div>
-              <div><label className="cc-label">Já guardei (R$)</label><input type="number" value={form.current} onChange={(e) => setForm((p) => ({ ...p, current: e.target.value }))} defaultValue="0" className="cc-input" /></div>
+              <div><label className="cc-label">Valor alvo (R$) *</label><input type="number" step="0.01" value={form.targetAmount} onChange={(e) => setForm((p) => ({ ...p, targetAmount: e.target.value }))} className="cc-input" /></div>
+              <div><label className="cc-label">Já guardei (R$)</label><input type="number" step="0.01" value={form.currentAmount} onChange={(e) => setForm((p) => ({ ...p, currentAmount: e.target.value }))} className="cc-input" /></div>
             </div>
             <div><label className="cc-label">Prazo (opcional)</label><input type="date" value={form.deadline} onChange={(e) => setForm((p) => ({ ...p, deadline: e.target.value }))} className="cc-input" /></div>
             <div className="flex gap-2">
-              <button type="button" onClick={addGoal} className="cc-btn text-white text-sm px-4 py-2 rounded-lg" style={{ background: "#4f46e5" }}>Salvar Meta</button>
+              <button type="button" onClick={save} disabled={saving} className="cc-btn text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60" style={{ background: "#4f46e5" }}>{saving ? "Salvando..." : "Salvar Meta"}</button>
               <button type="button" onClick={() => setShowModal(false)} className="cc-btn-ghost">Cancelar</button>
             </div>
           </div>

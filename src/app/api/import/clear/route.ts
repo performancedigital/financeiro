@@ -16,6 +16,9 @@ export async function POST() {
       workspaceOptions: [],
       debts: [],
       documents: [],
+      investments: [],
+      goals: [],
+      budgets: [],
     });
     return NextResponse.json({ ok: true });
   });

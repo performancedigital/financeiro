@@ -11,10 +11,13 @@ import {
 } from "react";
 import type {
   AccountInput,
+  BudgetInput,
   ClientInput,
   ContractInput,
   DebtInput,
   DocumentInput,
+  GoalInput,
+  InvestmentInput,
   PayableInput,
   ReceivableInput,
   TransactionInput,
@@ -29,17 +32,22 @@ type AppStoreContextType = {
   error: StoreError | null;
   refresh: () => void;
   createAccount: (payload: AccountInput) => Promise<{ ok: boolean }>;
+  updateAccount: (id: string, payload: AccountInput) => Promise<{ ok: boolean }>;
   deleteAccount: (id: string) => Promise<{ ok: boolean }>;
   createTransaction: (payload: TransactionInput) => Promise<{ duplicate?: boolean }>;
   deleteTransaction: (id: string) => Promise<{ ok: boolean }>;
   createClient: (payload: ClientInput) => Promise<{ ok: boolean }>;
+  updateClient: (id: string, payload: ClientInput) => Promise<{ ok: boolean }>;
   deleteClient: (id: string) => Promise<{ ok: boolean }>;
   createContract: (payload: ContractInput) => Promise<{ ok: boolean }>;
+  updateContract: (id: string, payload: ContractInput) => Promise<{ ok: boolean }>;
   deleteContract: (id: string) => Promise<{ ok: boolean }>;
   createReceivable: (payload: ReceivableInput) => Promise<{ ok: boolean }>;
+  updateReceivable: (id: string, payload: ReceivableInput) => Promise<{ ok: boolean }>;
   markReceivablePaid: (id: string) => Promise<{ ok: boolean }>;
   deleteReceivable: (id: string) => Promise<{ ok: boolean }>;
   createPayable: (payload: PayableInput) => Promise<{ ok: boolean }>;
+  updatePayable: (id: string, payload: PayableInput) => Promise<{ ok: boolean }>;
   markPayablePaid: (id: string) => Promise<{ ok: boolean }>;
   deletePayable: (id: string) => Promise<{ ok: boolean }>;
   importCsvPreview: (payload: { kind: string; csv: string; replaceAll?: boolean }) => Promise<{
@@ -57,9 +65,18 @@ type AppStoreContextType = {
   createWorkspaceOption: (kind: string, value: string, label: string) => Promise<{ ok: boolean }>;
   deleteWorkspaceOption: (id: string) => Promise<{ ok: boolean }>;
   createDebt: (payload: DebtInput) => Promise<{ ok: boolean }>;
+  updateDebt: (id: string, payload: DebtInput) => Promise<{ ok: boolean }>;
   deleteDebt: (id: string) => Promise<{ ok: boolean }>;
   createDocument: (payload: DocumentInput) => Promise<{ ok: boolean }>;
   deleteDocument: (id: string) => Promise<{ ok: boolean }>;
+  createInvestment: (payload: InvestmentInput) => Promise<{ ok: boolean }>;
+  updateInvestment: (id: string, payload: InvestmentInput) => Promise<{ ok: boolean }>;
+  deleteInvestment: (id: string) => Promise<{ ok: boolean }>;
+  createGoal: (payload: GoalInput) => Promise<{ ok: boolean }>;
+  updateGoal: (id: string, payload: GoalInput) => Promise<{ ok: boolean }>;
+  deleteGoal: (id: string) => Promise<{ ok: boolean }>;
+  createBudget: (payload: BudgetInput) => Promise<{ ok: boolean }>;
+  deleteBudget: (id: string) => Promise<{ ok: boolean }>;
   smartImport: (csv: string) => Promise<{ imported: number; skipped: number; errors: string[] }>;
 };
 
@@ -113,17 +130,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const value: AppStoreContextType = useMemo(() => ({
     store, loading, error, refresh,
     createAccount: (p) => mutate("/api/accounts", { method: "POST", body: JSON.stringify(p) }),
+    updateAccount: (id, p) => mutate(`/api/accounts/${id}`, { method: "PUT", body: JSON.stringify(p) }),
     deleteAccount: (id) => mutate(`/api/accounts/${id}`, { method: "DELETE" }),
     createTransaction: (p) => mutate("/api/transactions", { method: "POST", body: JSON.stringify(p) }),
     deleteTransaction: (id) => mutate(`/api/transactions/${id}`, { method: "DELETE" }),
     createClient: (p) => mutate("/api/clients", { method: "POST", body: JSON.stringify(p) }),
+    updateClient: (id, p) => mutate(`/api/clients/${id}`, { method: "PUT", body: JSON.stringify(p) }),
     deleteClient: (id) => mutate(`/api/clients/${id}`, { method: "DELETE" }),
     createContract: (p) => mutate("/api/contracts", { method: "POST", body: JSON.stringify(p) }),
+    updateContract: (id, p) => mutate(`/api/contracts/${id}`, { method: "PUT", body: JSON.stringify(p) }),
     deleteContract: (id) => mutate(`/api/contracts/${id}`, { method: "DELETE" }),
     createReceivable: (p) => mutate("/api/receivables", { method: "POST", body: JSON.stringify(p) }),
+    updateReceivable: (id, p) => mutate(`/api/receivables/${id}`, { method: "PUT", body: JSON.stringify(p) }),
     markReceivablePaid: (id) => mutate(`/api/receivables/${id}/paid`, { method: "PATCH" }),
     deleteReceivable: (id) => mutate(`/api/receivables/${id}`, { method: "DELETE" }),
     createPayable: (p) => mutate("/api/payables", { method: "POST", body: JSON.stringify(p) }),
+    updatePayable: (id, p) => mutate(`/api/payables/${id}`, { method: "PUT", body: JSON.stringify(p) }),
     markPayablePaid: (id) => mutate(`/api/payables/${id}/paid`, { method: "PATCH" }),
     deletePayable: (id) => mutate(`/api/payables/${id}`, { method: "DELETE" }),
     importCsvPreview: (p) => mutate("/api/import/csv", { method: "POST", body: JSON.stringify({ ...p, mode: "preview" }) }),
@@ -138,9 +160,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     deleteWorkspaceOption: (id) =>
       mutate(`/api/workspace-options/${id}`, { method: "DELETE" }),
     createDebt: (p) => mutate("/api/debts", { method: "POST", body: JSON.stringify(p) }),
+    updateDebt: (id, p) => mutate(`/api/debts/${id}`, { method: "PUT", body: JSON.stringify(p) }),
     deleteDebt: (id) => mutate(`/api/debts/${id}`, { method: "DELETE" }),
     createDocument: (p) => mutate("/api/documents", { method: "POST", body: JSON.stringify(p) }),
     deleteDocument: (id) => mutate(`/api/documents/${id}`, { method: "DELETE" }),
+    createInvestment: (p) => mutate("/api/investments", { method: "POST", body: JSON.stringify(p) }),
+    updateInvestment: (id, p) => mutate(`/api/investments/${id}`, { method: "PUT", body: JSON.stringify(p) }),
+    deleteInvestment: (id) => mutate(`/api/investments/${id}`, { method: "DELETE" }),
+    createGoal: (p) => mutate("/api/goals", { method: "POST", body: JSON.stringify(p) }),
+    updateGoal: (id, p) => mutate(`/api/goals/${id}`, { method: "PUT", body: JSON.stringify(p) }),
+    deleteGoal: (id) => mutate(`/api/goals/${id}`, { method: "DELETE" }),
+    createBudget: (p) => mutate("/api/budgets", { method: "POST", body: JSON.stringify(p) }),
+    deleteBudget: (id) => mutate(`/api/budgets/${id}`, { method: "DELETE" }),
     smartImport: (csv) => mutate("/api/import/smart", { method: "POST", body: JSON.stringify({ csv }) }),
   }), [store, loading, error, refresh, mutate]);
 

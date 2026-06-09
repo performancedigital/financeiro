@@ -4,22 +4,23 @@ Plataforma web para gestão financeira de agência de performance.
 
 ## Status atual
 
-- Etapa 1 concluída: base Next.js + TypeScript + Tailwind + Prisma.
-- Etapa 2 concluída: login funcional com sessão em cookie httpOnly e rota protegida (`/dashboard`).
+- Base Next.js 16 + TypeScript + Tailwind 4 + Prisma 6 (PostgreSQL).
+- Login/registro funcional com sessão em cookie httpOnly e rota protegida (`/dashboard`).
+- CRUD completo (criar/editar/excluir) em contas, transações, clientes, contratos, a receber, a pagar, dívidas e documentos.
+- Painel Pessoal com investimentos, metas e orçamento **persistidos no banco**.
 
-## Credenciais MVP
+## Acesso
 
-- E-mail: `admin@caixacomando.local`
-- Senha: `admin123`
+Não há usuário pré-cadastrado. Crie a sua conta em **`/register`** (escolhendo workspace Empresa ou Pessoal). O primeiro login é feito com as credenciais que você cadastrar.
 
 ## Requisitos
 
 - Node.js 20+ (recomendado LTS)
-- PostgreSQL
+- PostgreSQL (local ou Supabase)
 
 ## Setup local
 
-1. Copie o arquivo de ambiente:
+1. Copie o arquivo de ambiente e preencha as variáveis:
 
 ```bash
 cp .env.example .env
@@ -31,15 +32,17 @@ cp .env.example .env
 npm install
 ```
 
-3. Gere cliente Prisma:
+3. Gere o cliente Prisma:
 
 ```bash
 npm run db:generate
 ```
 
-4. Suba schema no banco:
+4. Aplique o schema no banco (migrations versionadas):
 
 ```bash
+npm run db:deploy   # produção / banco já existente (prisma migrate deploy)
+# ou, para desenvolvimento rápido em banco vazio:
 npm run db:push
 ```
 
@@ -125,18 +128,20 @@ curl -X POST http://localhost:3000/api/import/csv ^
 
 ## Variáveis de ambiente
 
-- `DATABASE_URL`
-- `NEXTAUTH_SECRET`
-- `NEXTAUTH_URL`
+- `POSTGRES_PRISMA_URL` — conexão via pooler (runtime). Preenchida pela integração Supabase na Vercel.
+- `POSTGRES_URL_NON_POOLING` — conexão direta (migrations). Preenchida pela integração Supabase na Vercel.
+- `NEXTAUTH_SECRET` — chave de assinatura das sessões. **Obrigatória em produção** (gere com `openssl rand -base64 32`).
 
 ## Deploy Vercel
 
 Definir no projeto:
 
 - Framework: Next.js
-- Build command: `npm run build`
 - Install command: `npm install`
-- Environment Variables: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`
+- Build command (já configurado em `vercel.json`): `prisma generate && prisma migrate deploy && next build --webpack`
+- Environment Variables: `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `NEXTAUTH_SECRET`
+
+O `prisma migrate deploy` no build aplica as migrations automaticamente. Recomendado usar um **banco Supabase novo** para o primeiro deploy, evitando conflito com tabelas pré-existentes criadas via `db push`.
 
 ## Próximas etapas
 

@@ -117,6 +117,30 @@ export type DocumentRow = {
   tags: string[];
 };
 
+export type InvestmentRow = {
+  id: string;
+  name: string;
+  type: string;
+  investedAmount: number;
+  currentValue: number;
+  notes?: string;
+};
+
+export type GoalRow = {
+  id: string;
+  name: string;
+  type: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline?: string;
+};
+
+export type BudgetRow = {
+  id: string;
+  category: string;
+  limitAmount: number;
+};
+
 export type DbSnapshot = {
   accounts: AccountRow[];
   transactions: TransactionRow[];
@@ -129,4 +153,7 @@ export type DbSnapshot = {
   workspaceOptions: WorkspaceOptionRow[];
   debts: DebtRow[];
   documents: DocumentRow[];
+  investments: InvestmentRow[];
+  goals: GoalRow[];
+  budgets: BudgetRow[];
 };

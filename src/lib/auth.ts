@@ -7,8 +7,18 @@ import { seedWorkspaceOptions } from "@/lib/db-service";
 
 const SESSION_COOKIE = "cc_session";
 
-const getSecret = () =>
-  new TextEncoder().encode(process.env.NEXTAUTH_SECRET ?? "change-me-in-production");
+const getSecret = () => {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret || secret.length < 16) {
+    // Em produção, jamais permitir um segredo fraco/ausente: sessões JWT poderiam ser forjadas.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("NEXTAUTH_SECRET ausente ou fraco. Defina uma chave forte (>= 32 chars) nas variáveis de ambiente.");
+    }
+    console.warn("[auth] NEXTAUTH_SECRET ausente — usando segredo de desenvolvimento. NÃO use em produção.");
+    return new TextEncoder().encode("dev-only-insecure-secret-change-me");
+  }
+  return new TextEncoder().encode(secret);
+};
 
 export type SessionPayload = {
   sub: string;

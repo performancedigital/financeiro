@@ -14,6 +14,9 @@ const snapshot: DbSnapshot = {
   workspaceOptions: [],
   debts: [],
   documents: [],
+  investments: [],
+  goals: [],
+  budgets: [],
   transactions: [
     {
       id: "1",
@@ -66,4 +69,29 @@ test("simplifiedDre calculates operational margin", () => {
   assert.equal(dre.impostos, 100);
   assert.equal(dre.operacional, 600);
   assert.equal(Number(dre.margem.toFixed(2)), 60);
+});
+
+test("simplifiedDre lines reconcile to the operational result", () => {
+  const withOther: DbSnapshot = {
+    ...snapshot,
+    transactions: [
+      ...snapshot.transactions,
+      {
+        id: "4",
+        date: "2026-06-02",
+        direction: "EXPENSE",
+        description: "Aluguel (sem categoria detalhada)",
+        amount: 250,
+        accountId: "a",
+        category: "Aluguel",
+        costCenter: "Agencia",
+        duplicateHash: "",
+      },
+    ],
+  };
+  const dre = simplifiedDre(withOther);
+  // Receita - (impostos + equipe + ferramentas + proLabore + outras) deve fechar no operacional.
+  const totalDeducoes = dre.impostos + dre.equipe + dre.ferramentas + dre.proLabore + dre.outras;
+  assert.equal(dre.income - totalDeducoes, dre.operacional);
+  assert.equal(dre.outras, 250);
 });

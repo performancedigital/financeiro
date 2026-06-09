@@ -75,6 +75,9 @@ model Workspace {
   workspaceOptions WorkspaceOption[]
   debts            Debt[]
   documents        Document[]
+  investments      Investment[]
+  goals            Goal[]
+  budgets          Budget[]
 }
 
 model WorkspaceOption {
@@ -305,4 +308,50 @@ model Document {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
+}
+
+model Investment {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id])
+  name           String
+  type           String    @default("OTHER")
+  investedAmount Decimal   @default(0)
+  currentValue   Decimal   @default(0)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@index([workspaceId])
+}
+
+model Goal {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id])
+  name          String
+  type          String    @default("OTHER")
+  targetAmount  Decimal   @default(0)
+  currentAmount Decimal   @default(0)
+  deadline      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  @@index([workspaceId])
+}
+
+model Budget {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  category    String
+  limitAmount Decimal   @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([workspaceId, category])
+  @@index([workspaceId])
 }

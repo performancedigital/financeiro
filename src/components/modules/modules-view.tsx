@@ -215,7 +215,7 @@ function CashflowModule() {
 function DreModule() {
   const { store, loading } = useAppStore();
   if (!store) return <div className="flex justify-center py-12 text-zinc-500 text-sm">{loading ? "Carregando..." : "Sem dados."}</div>;
-  const { income, impostos, equipe, ferramentas, proLabore, operacional, margem } = simplifiedDre(store);
+  const { income, impostos, equipe, ferramentas, proLabore, outras, operacional, margem } = simplifiedDre(store);
   const pctOf = (v: number) => income > 0 ? `${((v / income) * 100).toFixed(1)}%` : "-";
 
   return (
@@ -232,6 +232,7 @@ function DreModule() {
             { label: "(-) Equipe", value: -equipe, pct: pctOf(equipe), bold: false, color: "" },
             { label: "(-) Ferramentas", value: -ferramentas, pct: pctOf(ferramentas), bold: false, color: "" },
             { label: "(-) Pró-labore", value: -proLabore, pct: pctOf(proLabore), bold: false, color: "" },
+            { label: "(-) Outras despesas", value: -outras, pct: pctOf(outras), bold: false, color: "" },
           ].map((row) => (
             <div key={row.label} className="flex items-center justify-between py-2.5 border-b border-zinc-100 text-sm">
               <span className={row.bold ? "font-bold text-zinc-900 text-base" : "text-zinc-700"}>{row.label}</span>

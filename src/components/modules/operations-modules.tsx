@@ -12,6 +12,7 @@ import {
 } from "@/lib/validators";
 import { Modal } from "@/components/ui/modal";
 import { Badge, clientStatusBadge, payableStatusBadge, receivableStatusBadge } from "@/components/ui/badge";
+import type { AccountRow, ClientRow, ContractRow, PayableRow, ReceivableRow } from "@/lib/db-types";
 
 const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -64,11 +65,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 /* ══════════════ CONTAS + TRANSAÇÕES ══════════════ */
 export function AccountsModule() {
-  const { store, loading, error: storeErr, createAccount, deleteAccount, createTransaction, deleteTransaction } = useAppStore();
+  const { store, loading, error: storeErr, createAccount, updateAccount, deleteAccount, createTransaction, deleteTransaction } = useAppStore();
   const [showAccModal, setShowAccModal] = useState(false);
   const [showTxModal, setShowTxModal] = useState(false);
+  const [editAcc, setEditAcc] = useState<AccountRow | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [tab, setTab] = useState<"accounts" | "transactions">("accounts");
+
+  const openNewAcc = () => { setEditAcc(null); setFormError(null); setShowAccModal(true); };
+  const openEditAcc = (acc: AccountRow) => { setEditAcc(acc); setFormError(null); setShowAccModal(true); };
 
   const handleAccount = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -80,8 +85,10 @@ export function AccountsModule() {
       balance: Number(f.get("balance") ?? 0),
     });
     if (!parsed.success) { setFormError(parsed.error.issues[0]?.message ?? "Erro"); return; }
-    await createAccount(parsed.data);
+    if (editAcc) await updateAccount(editAcc.id, parsed.data);
+    else await createAccount(parsed.data);
     setFormError(null);
+    setEditAcc(null);
     setShowAccModal(false);
   };
 
@@ -114,7 +121,7 @@ export function AccountsModule() {
       <PageHeader
         title="Contas & Transações"
         subtitle="Gerencie suas contas bancárias e lançamentos financeiros"
-        onAdd={() => { setFormError(null); tab === "accounts" ? setShowAccModal(true) : setShowTxModal(true); }}
+        onAdd={() => { setFormError(null); tab === "accounts" ? openNewAcc() : setShowTxModal(true); }}
         addLabel={tab === "accounts" ? "Nova Conta" : "Nova Transação"}
       />
 
@@ -172,7 +179,10 @@ export function AccountsModule() {
                           <td className="cc-td text-zinc-500">{a.institution}</td>
                           <td className="cc-td text-right font-semibold">{money(a.balance)}</td>
                           <td className="cc-td">
-                            <button type="button" onClick={() => void deleteAccount(a.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => openEditAcc(a)} className="text-xs text-blue-600 hover:underline">Editar</button>
+                              <button type="button" onClick={() => void deleteAccount(a.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -224,17 +234,17 @@ export function AccountsModule() {
         </>
       )}
 
-      {/* Modal Nova Conta */}
+      {/* Modal Conta */}
       {showAccModal && (
-        <Modal title="Nova Conta" onClose={() => setShowAccModal(false)}>
+        <Modal title={editAcc ? "Editar Conta" : "Nova Conta"} onClose={() => { setShowAccModal(false); setEditAcc(null); }}>
           <form onSubmit={handleAccount} className="space-y-4">
             {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
             <Field label="Nome da Conta *">
-              <input name="name" required placeholder="Ex: Sicoob Pessoal" className="cc-input" />
+              <input name="name" required defaultValue={editAcc?.name ?? ""} placeholder="Ex: Sicoob Pessoal" className="cc-input" />
             </Field>
             <FormRow>
               <Field label="Tipo de Caixa *">
-                <select name="type" required className="cc-select">
+                <select name="type" required defaultValue={editAcc?.type ?? ""} className="cc-select">
                   <option value="">-- Selecionar tipo --</option>
                   {(store?.workspaceOptions ?? [])
                     .filter((o) => o.kind === "ACCOUNT_TYPE")
@@ -244,7 +254,7 @@ export function AccountsModule() {
                 </select>
               </Field>
               <Field label="Banco / Instituição *">
-                <select name="institution" required className="cc-select">
+                <select name="institution" required defaultValue={editAcc?.institution ?? ""} className="cc-select">
                   <option value="">-- Selecionar banco --</option>
                   {(store?.workspaceOptions ?? [])
                     .filter((o) => o.kind === "INSTITUTION")
@@ -254,12 +264,12 @@ export function AccountsModule() {
                 </select>
               </Field>
             </FormRow>
-            <Field label="Saldo Inicial (R$)">
-              <input name="balance" type="number" step="0.01" defaultValue="0" className="cc-input" />
+            <Field label={editAcc ? "Saldo Inicial (R$)" : "Saldo Inicial (R$)"}>
+              <input name="balance" type="number" step="0.01" defaultValue={editAcc ? String(editAcc.balance) : "0"} className="cc-input" />
             </Field>
             <div className="flex gap-3 pt-2">
-              <button type="submit" className="cc-btn-primary">Salvar Conta</button>
-              <button type="button" onClick={() => setShowAccModal(false)} className="cc-btn-ghost">Cancelar</button>
+              <button type="submit" className="cc-btn-primary">{editAcc ? "Salvar Alterações" : "Salvar Conta"}</button>
+              <button type="button" onClick={() => { setShowAccModal(false); setEditAcc(null); }} className="cc-btn-ghost">Cancelar</button>
             </div>
           </form>
         </Modal>
@@ -340,11 +350,18 @@ export function AccountsModule() {
 
 /* ══════════════ CLIENTES + CONTRATOS ══════════════ */
 export function ClientsModule() {
-  const { store, loading, error: storeErr, createClient, deleteClient, createContract, deleteContract } = useAppStore();
+  const { store, loading, error: storeErr, createClient, updateClient, deleteClient, createContract, updateContract, deleteContract } = useAppStore();
   const [showClientModal, setShowClientModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
+  const [editClient, setEditClient] = useState<ClientRow | null>(null);
+  const [editContract, setEditContract] = useState<ContractRow | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [tab, setTab] = useState<"clients" | "contracts">("clients");
+
+  const openNewClient = () => { setEditClient(null); setFormError(null); setShowClientModal(true); };
+  const openEditClient = (c: ClientRow) => { setEditClient(c); setFormError(null); setShowClientModal(true); };
+  const openNewContract = () => { setEditContract(null); setFormError(null); setShowContractModal(true); };
+  const openEditContract = (c: ContractRow) => { setEditContract(c); setFormError(null); setShowContractModal(true); };
 
   const metrics = useMemo(() => {
     if (!store) return { clientRows: [] as Array<ReturnType<typeof Object.assign>>, mrr: 0, arr: 0, ltvAvg: 0 };
@@ -363,7 +380,7 @@ export function ClientsModule() {
 
   if (!store) return (
     <section className="space-y-5">
-      <PageHeader title="Clientes & Contratos" subtitle="Carteira de clientes, LTV e contratos ativos" onAdd={() => { setFormError(null); tab === "clients" ? setShowClientModal(true) : setShowContractModal(true); }} addLabel={tab === "clients" ? "Novo Cliente" : "Novo Contrato"} />
+      <PageHeader title="Clientes & Contratos" subtitle="Carteira de clientes, LTV e contratos ativos" onAdd={() => { tab === "clients" ? openNewClient() : openNewContract(); }} addLabel={tab === "clients" ? "Novo Cliente" : "Novo Contrato"} />
       <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-white py-16">
         <p className="text-sm text-zinc-500">{loading ? "Carregando dados..." : "Erro ao carregar. Verifique a conexão com o banco."}</p>
       </div>
@@ -375,8 +392,10 @@ export function ClientsModule() {
     const f = new FormData(e.currentTarget);
     const parsed = clientSchema.safeParse({ name: f.get("name"), status: f.get("status"), monthlyValue: Number(f.get("monthlyValue")), startDate: f.get("startDate") });
     if (!parsed.success) { setFormError(parsed.error.issues[0]?.message ?? "Erro"); return; }
-    await createClient(parsed.data);
+    if (editClient) await updateClient(editClient.id, parsed.data);
+    else await createClient(parsed.data);
     setFormError(null);
+    setEditClient(null);
     setShowClientModal(false);
   };
 
@@ -385,8 +404,10 @@ export function ClientsModule() {
     const f = new FormData(e.currentTarget);
     const parsed = contractSchema.safeParse({ clientId: f.get("clientId"), title: f.get("title"), monthlyValue: Number(f.get("monthlyValue")), startsAt: f.get("startsAt"), dueDay: Number(f.get("dueDay")), services: f.get("services") });
     if (!parsed.success) { setFormError(parsed.error.issues[0]?.message ?? "Erro"); return; }
-    await createContract(parsed.data);
+    if (editContract) await updateContract(editContract.id, parsed.data);
+    else await createContract(parsed.data);
     setFormError(null);
+    setEditContract(null);
     setShowContractModal(false);
   };
 
@@ -395,7 +416,7 @@ export function ClientsModule() {
       <PageHeader
         title="Clientes & Contratos"
         subtitle="Carteira de clientes, LTV e contratos ativos"
-        onAdd={() => { setFormError(null); tab === "clients" ? setShowClientModal(true) : setShowContractModal(true); }}
+        onAdd={() => { tab === "clients" ? openNewClient() : openNewContract(); }}
         addLabel={tab === "clients" ? "Novo Cliente" : "Novo Contrato"}
       />
 
@@ -455,7 +476,10 @@ export function ClientsModule() {
                       <td className="cc-td text-right font-semibold text-blue-700">{money(c.ltv)}</td>
                       <td className="cc-td text-right">{money(c.received)}</td>
                       <td className="cc-td">
-                        <button type="button" onClick={() => void deleteClient(c.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => openEditClient(c)} className="text-xs text-blue-600 hover:underline">Editar</button>
+                          <button type="button" onClick={() => void deleteClient(c.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -492,7 +516,10 @@ export function ClientsModule() {
                         <td className="cc-td">Dia {c.dueDay}</td>
                         <td className="cc-td text-zinc-500 text-xs">{c.services}</td>
                         <td className="cc-td">
-                          <button type="button" onClick={() => void deleteContract(c.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => openEditContract(c)} className="text-xs text-blue-600 hover:underline">Editar</button>
+                            <button type="button" onClick={() => void deleteContract(c.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -505,15 +532,15 @@ export function ClientsModule() {
       )}
 
       {showClientModal && (
-        <Modal title="Novo Cliente" onClose={() => setShowClientModal(false)}>
+        <Modal title={editClient ? "Editar Cliente" : "Novo Cliente"} onClose={() => { setShowClientModal(false); setEditClient(null); }}>
           <form onSubmit={handleClient} className="space-y-4">
             {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
             <Field label="Nome do Cliente *">
-              <input name="name" required placeholder="Ex: Educaminas" className="cc-input" />
+              <input name="name" required defaultValue={editClient?.name ?? ""} placeholder="Ex: Educaminas" className="cc-input" />
             </Field>
             <FormRow>
               <Field label="Status *">
-                <select name="status" defaultValue="ACTIVE" className="cc-select">
+                <select name="status" defaultValue={editClient?.status ?? "ACTIVE"} className="cc-select">
                   <option value="ACTIVE">Ativo</option>
                   <option value="STANDBY">Standby</option>
                   <option value="DELINQUENT">Inadimplente</option>
@@ -522,52 +549,52 @@ export function ClientsModule() {
                 </select>
               </Field>
               <Field label="Valor Mensal (R$) *">
-                <input name="monthlyValue" type="number" step="0.01" min="0" required placeholder="2500,00" className="cc-input" />
+                <input name="monthlyValue" type="number" step="0.01" min="0" required defaultValue={editClient ? String(editClient.monthlyValue) : ""} placeholder="2500,00" className="cc-input" />
               </Field>
             </FormRow>
             <Field label="Data de Início *">
-              <input name="startDate" type="date" defaultValue={today()} required className="cc-input" />
+              <input name="startDate" type="date" defaultValue={editClient?.startDate ?? today()} required className="cc-input" />
             </Field>
             <div className="flex gap-3 pt-2">
-              <button type="submit" className="cc-btn-primary">Salvar Cliente</button>
-              <button type="button" onClick={() => setShowClientModal(false)} className="cc-btn-ghost">Cancelar</button>
+              <button type="submit" className="cc-btn-primary">{editClient ? "Salvar Alterações" : "Salvar Cliente"}</button>
+              <button type="button" onClick={() => { setShowClientModal(false); setEditClient(null); }} className="cc-btn-ghost">Cancelar</button>
             </div>
           </form>
         </Modal>
       )}
 
       {showContractModal && (
-        <Modal title="Novo Contrato" onClose={() => setShowContractModal(false)}>
+        <Modal title={editContract ? "Editar Contrato" : "Novo Contrato"} onClose={() => { setShowContractModal(false); setEditContract(null); }}>
           <form onSubmit={handleContract} className="space-y-4">
             {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
             <Field label="Cliente *">
-              <select name="clientId" required className="cc-select">
+              <select name="clientId" required defaultValue={editContract?.clientId ?? ""} className="cc-select">
                 <option value="">-- Selecionar cliente --</option>
                 {store.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Field>
             <Field label="Título do Contrato *">
-              <input name="title" required placeholder="Ex: Gestão de Tráfego" className="cc-input" />
+              <input name="title" required defaultValue={editContract?.title ?? ""} placeholder="Ex: Gestão de Tráfego" className="cc-input" />
             </Field>
             <FormRow>
               <Field label="Valor Mensal (R$) *">
-                <input name="monthlyValue" type="number" step="0.01" min="0.01" required className="cc-input" />
+                <input name="monthlyValue" type="number" step="0.01" min="0.01" required defaultValue={editContract ? String(editContract.monthlyValue) : ""} className="cc-input" />
               </Field>
               <Field label="Dia de Vencimento *">
-                <input name="dueDay" type="number" min={1} max={31} defaultValue={10} required className="cc-input" />
+                <input name="dueDay" type="number" min={1} max={31} defaultValue={editContract?.dueDay ?? 10} required className="cc-input" />
               </Field>
             </FormRow>
             <FormRow>
               <Field label="Início do Contrato *">
-                <input name="startsAt" type="date" defaultValue={today()} required className="cc-input" />
+                <input name="startsAt" type="date" defaultValue={editContract?.startsAt ?? today()} required className="cc-input" />
               </Field>
               <Field label="Serviços">
-                <input name="services" placeholder="Ex: Gestão de tráfego, Social media" className="cc-input" />
+                <input name="services" defaultValue={editContract?.services ?? ""} placeholder="Ex: Gestão de tráfego, Social media" className="cc-input" />
               </Field>
             </FormRow>
             <div className="flex gap-3 pt-2">
-              <button type="submit" className="cc-btn-success">Salvar Contrato</button>
-              <button type="button" onClick={() => setShowContractModal(false)} className="cc-btn-ghost">Cancelar</button>
+              <button type="submit" className="cc-btn-success">{editContract ? "Salvar Alterações" : "Salvar Contrato"}</button>
+              <button type="button" onClick={() => { setShowContractModal(false); setEditContract(null); }} className="cc-btn-ghost">Cancelar</button>
             </div>
           </form>
         </Modal>
@@ -578,16 +605,20 @@ export function ClientsModule() {
 
 /* ══════════════ A RECEBER ══════════════ */
 export function ReceivablesModule() {
-  const { store, loading, error: storeErr, createReceivable, markReceivablePaid, deleteReceivable } = useAppStore();
+  const { store, loading, error: storeErr, createReceivable, updateReceivable, markReceivablePaid, deleteReceivable } = useAppStore();
   const [showModal, setShowModal] = useState(false);
+  const [editRec, setEditRec] = useState<ReceivableRow | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const openNew = () => { setEditRec(null); setFormError(null); setShowModal(true); };
+  const openEdit = (r: ReceivableRow) => { setEditRec(r); setFormError(null); setShowModal(true); };
 
   const [nowTs] = useState<number>(() => Date.now());
   const [todayStr] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   if (!store) return (
     <section className="space-y-5">
-      <PageHeader title="Contas a Receber" subtitle="Cobranças, pagamentos recebidos e inadimplência" onAdd={() => { setFormError(null); setShowModal(true); }} addLabel="Novo Recebível" />
+      <PageHeader title="Contas a Receber" subtitle="Cobranças, pagamentos recebidos e inadimplência" onAdd={openNew} addLabel="Novo Recebível" />
       <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-white py-16">
         <p className="text-sm text-zinc-500">{loading ? "Carregando dados..." : "Erro ao carregar. Verifique a conexão com o banco."}</p>
       </div>
@@ -614,14 +645,16 @@ export function ReceivablesModule() {
       notes: (f.get("notes") as string) || undefined,
     });
     if (!parsed.success) { setFormError(parsed.error.issues[0]?.message ?? "Erro"); return; }
-    await createReceivable(parsed.data);
+    if (editRec) await updateReceivable(editRec.id, parsed.data);
+    else await createReceivable(parsed.data);
     setFormError(null);
+    setEditRec(null);
     setShowModal(false);
   };
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Contas a Receber" subtitle="Cobranças, pagamentos recebidos e inadimplência" onAdd={() => { setFormError(null); setShowModal(true); }} addLabel="Novo Recebível" />
+      <PageHeader title="Contas a Receber" subtitle="Cobranças, pagamentos recebidos e inadimplência" onAdd={openNew} addLabel="Novo Recebível" />
 
       {storeErr && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{storeErr.message}</div>}
 
@@ -674,6 +707,7 @@ export function ReceivablesModule() {
                           Pago
                         </button>
                       )}
+                      <button type="button" onClick={() => openEdit(r)} className="text-xs text-blue-600 hover:underline">Editar</button>
                       <button type="button" onClick={() => void deleteReceivable(r.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
                     </div>
                   </td>
@@ -685,37 +719,37 @@ export function ReceivablesModule() {
       )}
 
       {showModal && (
-        <Modal title="Novo Recebível" onClose={() => setShowModal(false)}>
+        <Modal title={editRec ? "Editar Recebível" : "Novo Recebível"} onClose={() => { setShowModal(false); setEditRec(null); }}>
           <form onSubmit={handleAdd} className="space-y-4">
             {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
             <Field label="Cliente *">
-              <select name="clientId" required className="cc-select">
+              <select name="clientId" required defaultValue={editRec?.clientId ?? ""} className="cc-select">
                 <option value="">-- Selecionar cliente --</option>
                 {store.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Field>
             <FormRow>
               <Field label="Competência *">
-                <input name="competency" type="date" defaultValue={todayStr} required className="cc-input" />
+                <input name="competency" type="date" defaultValue={editRec?.competency ?? todayStr} required className="cc-input" />
               </Field>
               <Field label="Data de Vencimento *">
-                <input name="expectedDate" type="date" defaultValue={todayStr} required className="cc-input" />
+                <input name="expectedDate" type="date" defaultValue={editRec?.expectedDate ?? todayStr} required className="cc-input" />
               </Field>
             </FormRow>
             <FormRow>
               <Field label="Valor Previsto (R$) *">
-                <input name="expectedAmount" type="number" step="0.01" min="0.01" required placeholder="0,00" className="cc-input" />
+                <input name="expectedAmount" type="number" step="0.01" min="0.01" required defaultValue={editRec ? String(editRec.expectedAmount) : ""} placeholder="0,00" className="cc-input" />
               </Field>
               <Field label="Valor Recebido (R$)">
-                <input name="receivedAmount" type="number" step="0.01" min="0" defaultValue="0" className="cc-input" />
+                <input name="receivedAmount" type="number" step="0.01" min="0" defaultValue={editRec ? String(editRec.receivedAmount) : "0"} className="cc-input" />
               </Field>
             </FormRow>
             <FormRow>
               <Field label="Data de Recebimento">
-                <input name="receivedDate" type="date" className="cc-input" />
+                <input name="receivedDate" type="date" defaultValue={editRec?.receivedDate ?? ""} className="cc-input" />
               </Field>
               <Field label="Status *">
-                <select name="status" defaultValue="PENDING" className="cc-select">
+                <select name="status" defaultValue={editRec?.status ?? "PENDING"} className="cc-select">
                   <option value="PENDING">Pendente</option>
                   <option value="PAID">Pago</option>
                   <option value="PARTIAL">Pago Parcial</option>
@@ -726,17 +760,17 @@ export function ReceivablesModule() {
               </Field>
             </FormRow>
             <Field label="Conta de Recebimento">
-              <select name="accountId" className="cc-select">
+              <select name="accountId" defaultValue={editRec?.accountId ?? ""} className="cc-select">
                 <option value="">-- Opcional --</option>
                 {store.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </Field>
             <Field label="Observações">
-              <textarea name="notes" rows={2} className="cc-input resize-none" placeholder="Opcional..." />
+              <textarea name="notes" rows={2} defaultValue={editRec?.notes ?? ""} className="cc-input resize-none" placeholder="Opcional..." />
             </Field>
             <div className="flex gap-3 pt-2">
-              <button type="submit" className="cc-btn-success">Salvar Recebível</button>
-              <button type="button" onClick={() => setShowModal(false)} className="cc-btn-ghost">Cancelar</button>
+              <button type="submit" className="cc-btn-success">{editRec ? "Salvar Alterações" : "Salvar Recebível"}</button>
+              <button type="button" onClick={() => { setShowModal(false); setEditRec(null); }} className="cc-btn-ghost">Cancelar</button>
             </div>
           </form>
         </Modal>
@@ -747,13 +781,17 @@ export function ReceivablesModule() {
 
 /* ══════════════ A PAGAR ══════════════ */
 export function PayablesModule() {
-  const { store, loading, error: storeErr, createPayable, markPayablePaid, deletePayable } = useAppStore();
+  const { store, loading, error: storeErr, createPayable, updatePayable, markPayablePaid, deletePayable } = useAppStore();
   const [showModal, setShowModal] = useState(false);
+  const [editPay, setEditPay] = useState<PayableRow | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const openNew = () => { setEditPay(null); setFormError(null); setShowModal(true); };
+  const openEdit = (p: PayableRow) => { setEditPay(p); setFormError(null); setShowModal(true); };
 
   if (!store) return (
     <section className="space-y-5">
-      <PageHeader title="Contas a Pagar" subtitle="Despesas, compromissos e pagamentos realizados" onAdd={() => { setFormError(null); setShowModal(true); }} addLabel="Novo Pagamento" />
+      <PageHeader title="Contas a Pagar" subtitle="Despesas, compromissos e pagamentos realizados" onAdd={openNew} addLabel="Novo Pagamento" />
       <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 bg-white py-16">
         <p className="text-sm text-zinc-500">{loading ? "Carregando dados..." : "Erro ao carregar. Verifique a conexão com o banco."}</p>
       </div>
@@ -780,14 +818,16 @@ export function PayablesModule() {
       notes: (f.get("notes") as string) || undefined,
     });
     if (!parsed.success) { setFormError(parsed.error.issues[0]?.message ?? "Erro"); return; }
-    await createPayable(parsed.data);
+    if (editPay) await updatePayable(editPay.id, parsed.data);
+    else await createPayable(parsed.data);
     setFormError(null);
+    setEditPay(null);
     setShowModal(false);
   };
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Contas a Pagar" subtitle="Despesas, compromissos e pagamentos realizados" onAdd={() => { setFormError(null); setShowModal(true); }} addLabel="Novo Pagamento" />
+      <PageHeader title="Contas a Pagar" subtitle="Despesas, compromissos e pagamentos realizados" onAdd={openNew} addLabel="Novo Pagamento" />
 
       {storeErr && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{storeErr.message}</div>}
 
@@ -838,6 +878,7 @@ export function PayablesModule() {
                           Pago
                         </button>
                       )}
+                      <button type="button" onClick={() => openEdit(p)} className="text-xs text-blue-600 hover:underline">Editar</button>
                       <button type="button" onClick={() => void deletePayable(p.id)} className="text-xs text-red-600 hover:underline">Excluir</button>
                     </div>
                   </td>
@@ -849,52 +890,52 @@ export function PayablesModule() {
       )}
 
       {showModal && (
-        <Modal title="Novo Pagamento" onClose={() => setShowModal(false)}>
+        <Modal title={editPay ? "Editar Pagamento" : "Novo Pagamento"} onClose={() => { setShowModal(false); setEditPay(null); }}>
           <form onSubmit={handleAdd} className="space-y-4">
             {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
             <Field label="Descrição *">
-              <input name="description" required placeholder="Ex: Google Workspace" className="cc-input" />
+              <input name="description" required defaultValue={editPay?.description ?? ""} placeholder="Ex: Google Workspace" className="cc-input" />
             </Field>
             <FormRow>
               <Field label="Fornecedor">
-                <input name="provider" placeholder="Ex: Google" className="cc-input" />
+                <input name="provider" defaultValue={editPay?.provider ?? ""} placeholder="Ex: Google" className="cc-input" />
               </Field>
               <Field label="Categoria *">
                 {store?.categories.length ? (
-                  <select name="category" required className="cc-select">
+                  <select name="category" required defaultValue={editPay?.category ?? ""} className="cc-select">
                     <option value="">-- Selecionar --</option>
                     {store.categories.map((c) => (
                       <option key={c.id} value={c.name}>{c.name}</option>
                     ))}
                   </select>
                 ) : (
-                  <input name="category" required placeholder="Ex: Ferramentas" className="cc-input" />
+                  <input name="category" required defaultValue={editPay?.category ?? ""} placeholder="Ex: Ferramentas" className="cc-input" />
                 )}
               </Field>
             </FormRow>
             <FormRow>
               <Field label="Centro de Custo *">
                 {store?.costCenters.length ? (
-                  <select name="costCenter" required className="cc-select">
+                  <select name="costCenter" required defaultValue={editPay?.costCenter ?? ""} className="cc-select">
                     <option value="">-- Selecionar --</option>
                     {store.costCenters.map((c) => (
                       <option key={c.id} value={c.name}>{c.name}</option>
                     ))}
                   </select>
                 ) : (
-                  <input name="costCenter" required placeholder="Ex: Agencia" className="cc-input" />
+                  <input name="costCenter" required defaultValue={editPay?.costCenter ?? ""} placeholder="Ex: Agencia" className="cc-input" />
                 )}
               </Field>
               <Field label="Valor (R$) *">
-                <input name="amount" type="number" step="0.01" min="0.01" required placeholder="0,00" className="cc-input" />
+                <input name="amount" type="number" step="0.01" min="0.01" required defaultValue={editPay ? String(editPay.amount) : ""} placeholder="0,00" className="cc-input" />
               </Field>
             </FormRow>
             <FormRow>
               <Field label="Vencimento *">
-                <input name="dueDate" type="date" defaultValue={today()} required className="cc-input" />
+                <input name="dueDate" type="date" defaultValue={editPay?.dueDate ?? today()} required className="cc-input" />
               </Field>
               <Field label="Status *">
-                <select name="status" defaultValue="OPEN" className="cc-select">
+                <select name="status" defaultValue={editPay?.status ?? "OPEN"} className="cc-select">
                   <option value="OPEN">Aberto</option>
                   <option value="PAID">Pago</option>
                   <option value="OVERDUE">Atrasado</option>
@@ -906,7 +947,7 @@ export function PayablesModule() {
             </FormRow>
             <FormRow>
               <Field label="Tipo *">
-                <select name="type" defaultValue="VARIABLE" className="cc-select">
+                <select name="type" defaultValue={editPay?.type ?? "VARIABLE"} className="cc-select">
                   <option value="FIXED">Fixo</option>
                   <option value="VARIABLE">Variável</option>
                   <option value="RECURRING">Recorrente</option>
@@ -916,18 +957,18 @@ export function PayablesModule() {
                 </select>
               </Field>
               <Field label="Conta de Pagamento">
-                <select name="accountId" className="cc-select">
+                <select name="accountId" defaultValue={editPay?.accountId ?? ""} className="cc-select">
                   <option value="">-- Opcional --</option>
                   {store.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </Field>
             </FormRow>
             <Field label="Observações">
-              <textarea name="notes" rows={2} className="cc-input resize-none" placeholder="Opcional..." />
+              <textarea name="notes" rows={2} defaultValue={editPay?.notes ?? ""} className="cc-input resize-none" placeholder="Opcional..." />
             </Field>
             <div className="flex gap-3 pt-2">
-              <button type="submit" className="cc-btn-primary">Salvar Pagamento</button>
-              <button type="button" onClick={() => setShowModal(false)} className="cc-btn-ghost">Cancelar</button>
+              <button type="submit" className="cc-btn-primary">{editPay ? "Salvar Alterações" : "Salvar Pagamento"}</button>
+              <button type="button" onClick={() => { setShowModal(false); setEditPay(null); }} className="cc-btn-ghost">Cancelar</button>
             </div>
           </form>
         </Modal>
